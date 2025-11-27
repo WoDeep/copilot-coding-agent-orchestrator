@@ -1,0 +1,29 @@
+# CODEOWNERS - Protected files requiring owner approval
+# See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# ============================================
+# PROTECTED BRANDING & DONATION ASSETS
+# These files CANNOT be modified without owner approval
+# ============================================
+
+# Swaibian logos and branding
+swaibian_Avatar_white.png @WoDeep
+swaibian_white.png @WoDeep
+thankyou.jpg @WoDeep
+
+# Any future image assets
+*.png @WoDeep
+*.jpg @WoDeep
+*.jpeg @WoDeep
+*.svg @WoDeep
+*.gif @WoDeep
+*.ico @WoDeep
+
+# README (contains donation links, branding)
+README.md @WoDeep
+
+# License file
+LICENSE @WoDeep
+
+# GitHub folder itself (prevent CODEOWNERS tampering)
+.github/** @WoDeep
