@@ -98,6 +98,8 @@ with st.sidebar:
                 if engine.connect():
                     st.session_state.connected = True
                     st.success(f"Connected as {engine.client.get_current_user()}")
+                    # Auto-refresh to fetch issue titles on connect
+                    engine.refresh_status()
                     st.rerun()
                 else:
                     st.error("Connection failed. Check your GitHub token.")
@@ -301,7 +303,11 @@ def render_queue_item(item: QueueItem, index: int, total: int, show_controls: bo
     
     with col1:
         badge = state_badge(item.state)
-        st.write(f"{badge} **{item.issue_id}**")
+        # Show issue title if available, otherwise just ID
+        if item.issue_title:
+            st.write(f"{badge} **{item.issue_title}**")
+        else:
+            st.write(f"{badge} **{item.issue_id}**")
         if item.issue_number:
             st.caption(f"Issue #{item.issue_number}")
     
@@ -374,13 +380,24 @@ with tab2:
     if not in_progress:
         st.info("No issues currently in progress.")
     else:
+        # Get workflow history from daemon status
+        workflow_histories = {}
+        if daemon_status:
+            for issue_id, item_state in daemon_status.get('item_states', {}).items():
+                if 'workflow_history' in item_state:
+                    workflow_histories[issue_id] = item_state['workflow_history']
+        
         for item in in_progress:
             with st.container():
                 col1, col2, col3 = st.columns([3, 4, 2])
                 
                 with col1:
                     badge = state_badge(item.state)
-                    st.write(f"{badge} **{item.issue_id}**")
+                    # Show issue title if available, otherwise just ID
+                    if item.issue_title:
+                        st.write(f"{badge} **{item.issue_title}**")
+                    else:
+                        st.write(f"{badge} **{item.issue_id}**")
                     if item.issue_number:
                         st.markdown(f"[Issue #{item.issue_number}](https://github.com/{REPO_FULL}/issues/{item.issue_number})")
                 
@@ -411,6 +428,31 @@ with tab2:
                                 st.success("Merged!")
                                 st.rerun()
                 
+                # Workflow History Log
+                history = workflow_histories.get(item.issue_id, [])
+                if history:
+                    with st.expander(f"📋 Workflow Log ({len(history)} events)", expanded=False):
+                        for event in reversed(history):  # Show newest first
+                            timestamp = event.get('timestamp', 'N/A')
+                            event_text = event.get('event', 'Unknown')
+                            state = event.get('state', '')
+                            pr = event.get('pr_number', '')
+                            
+                            # Format timestamp nicely
+                            try:
+                                from datetime import datetime
+                                dt = datetime.fromisoformat(timestamp)
+                                time_str = dt.strftime('%H:%M:%S')
+                                date_str = dt.strftime('%Y-%m-%d')
+                            except:
+                                time_str = timestamp
+                                date_str = ""
+                            
+                            pr_info = f" (PR #{pr})" if pr else ""
+                            st.markdown(f"**{time_str}** - {event_text}{pr_info}")
+                            if date_str:
+                                st.caption(f"{date_str} | State: {state}")
+                
                 st.divider()
 
 
@@ -426,8 +468,10 @@ with tab3:
         # Show as a compact table
         data = []
         for item in completed:
+            # Show title if available, otherwise issue_id
+            display_name = item.issue_title if item.issue_title else item.issue_id
             data.append({
-                "Issue ID": item.issue_id,
+                "Issue": display_name,
                 "Issue #": item.issue_number,
                 "PR #": item.pr_number,
                 "Completed": item.last_action_time.strftime('%Y-%m-%d %H:%M') if item.last_action_time else "N/A"

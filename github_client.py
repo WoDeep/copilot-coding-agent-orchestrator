@@ -363,6 +363,7 @@ class GitHubClient:
         reviews = list(pr.get_reviews())
         review_state = None
         has_pending_suggestions = False
+        copilot_has_reviewed = False
         
         # Get the latest commit SHA for the PR
         latest_commit_sha = pr.head.sha
@@ -371,30 +372,32 @@ class GitHubClient:
             latest_review = reviews[-1]
             review_state = latest_review.state
             
-            # Check if there are review comments with suggestions that haven't been addressed
-            # COMMENTED reviews with suggestions should be treated like CHANGES_REQUESTED
-            # BUT only if there are no commits after the suggestion was made
-            if review_state == "COMMENTED":
-                try:
-                    review_comments = list(pr.get_review_comments())
-                    for comment in review_comments:
-                        if "```suggestion" in (comment.body or ""):
-                            # Check if this suggestion was made on an older commit
-                            # If the PR has new commits since the suggestion, it's been addressed
-                            suggestion_commit = comment.commit_id if hasattr(comment, 'commit_id') else None
-                            if suggestion_commit and suggestion_commit != latest_commit_sha:
-                                # There's a newer commit - suggestion was likely addressed
+            # Check if Copilot has finished reviewing
+            # Look for the signature text in review body
+            for review in reviews:
+                if review.body and "Copilot finished reviewing" in review.body:
+                    copilot_has_reviewed = True
+                    # Check if there are review comments on the current commit
+                    try:
+                        review_comments = list(pr.get_review_comments())
+                        for comment in review_comments:
+                            # Check if this comment was made on an older commit
+                            comment_commit = comment.commit_id if hasattr(comment, 'commit_id') else None
+                            if comment_commit and comment_commit != latest_commit_sha:
+                                # There's a newer commit - comment was likely addressed
                                 continue
+                            # This comment is on the latest commit - needs attention
                             has_pending_suggestions = True
                             break
-                except:
-                    pass
+                    except:
+                        pass
+                    break
         
         # Get requested reviewers BEFORE determining state
         requested_reviewers = [r.login for r in pr.get_review_requests()[0]]
         
         # Check PR state - order matters!
-        # Priority: merged > closed > approved > changes_requested > pending_suggestions > review_requested > draft > open
+        # Priority: merged > closed > approved > changes_requested > copilot_reviewed_with_comments > review_requested > draft > open
         state = PRState.OPEN
         if pr.merged:
             state = PRState.MERGED
@@ -404,9 +407,12 @@ class GitHubClient:
             state = PRState.APPROVED
         elif review_state == "CHANGES_REQUESTED":
             state = PRState.CHANGES_REQUESTED
-        elif has_pending_suggestions:
-            # COMMENTED review with pending suggestions = needs changes applied
+        elif copilot_has_reviewed and has_pending_suggestions:
+            # Copilot has reviewed and there are comments on current commit = needs changes applied
             state = PRState.CHANGES_REQUESTED
+        elif copilot_has_reviewed and not has_pending_suggestions:
+            # Copilot reviewed but all comments addressed (new commits made) = can proceed
+            state = PRState.APPROVED if not pr.draft else PRState.REVIEW_REQUESTED
         elif requested_reviewers:
             # If review has been requested, this takes priority over draft
             # Because Copilot requests review when it's ready for feedback
