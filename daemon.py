@@ -383,20 +383,22 @@ class AutomationDaemon:
                     logger.warning(f"[{item.issue_id}] Failed to mark PR as ready for review")
                     return None
             
-            # Step 2: If PR is approved, merge it
-            if pr.state == PRState.APPROVED or item.state == WorkflowState.APPROVED:
+            # Step 2: If PR is approved OR skip_final_review is enabled, merge it
+            skip_final_review = auto_config.get('skip_final_review', False)
+            if pr.state == PRState.APPROVED or item.state == WorkflowState.APPROVED or skip_final_review:
                 item.state = WorkflowState.APPROVED
-                logger.info(f"[{item.issue_id}] PR approved - proceeding to merge")
+                merge_reason = "after approval" if pr.state == PRState.APPROVED else "review cycle complete (skip_final_review enabled)"
+                logger.info(f"[{item.issue_id}] PR ready to merge - {merge_reason}")
                 if auto_config.get('auto_merge', True):
                     if self.engine.client.merge_pr(item.pr_number):
                         item.state = WorkflowState.MERGED
-                        item.last_action = "Merged PR after approval"
+                        item.last_action = f"Merged PR ({merge_reason})"
                         item.last_action_time = datetime.now()
                         self.review_tracker.clear_pr(item.pr_number)
-                        return f"Merged PR #{item.pr_number} after approval"
+                        return f"Merged PR #{item.pr_number} - {merge_reason}"
             
             # Step 3: PR not approved yet - request final Copilot review to get approval
-            # This handles all states where review cycle is done but approval is pending
+            # Only if skip_final_review is disabled
             elif pr.state not in [PRState.CHANGES_REQUESTED, PRState.APPROVED]:
                 # Request a final Copilot review to get approval
                 logger.info(f"[{item.issue_id}] Review cycle complete, requesting final Copilot review for approval")

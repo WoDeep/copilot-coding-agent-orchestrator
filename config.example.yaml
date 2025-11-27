@@ -11,6 +11,7 @@ automation:
   auto_merge: true         # Automatically merge approved PRs
   auto_assign_next: true   # Automatically assign next issue after merge
   cooldown_minutes: 20     # Minimum minutes between issue assignments
+  skip_final_review: true  # Skip final Copilot review after applying changes - merge directly
 
 # Custom instructions to include when assigning issues to Copilot
 agent_instructions: |
