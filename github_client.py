@@ -330,15 +330,28 @@ class GitHubClient:
         # Determine review state
         reviews = list(pr.get_reviews())
         review_state = None
+        has_suggestions = False
         if reviews:
             latest_review = reviews[-1]
             review_state = latest_review.state
+            
+            # Check if there are review comments with suggestions
+            # COMMENTED reviews with suggestions should be treated like CHANGES_REQUESTED
+            if review_state == "COMMENTED":
+                try:
+                    review_comments = list(pr.get_review_comments())
+                    for comment in review_comments:
+                        if "```suggestion" in (comment.body or ""):
+                            has_suggestions = True
+                            break
+                except:
+                    pass
         
         # Get requested reviewers BEFORE determining state
         requested_reviewers = [r.login for r in pr.get_review_requests()[0]]
         
         # Check PR state - order matters!
-        # Priority: merged > closed > approved > changes_requested > review_requested > draft > open
+        # Priority: merged > closed > approved > changes_requested > suggestions > review_requested > draft > open
         state = PRState.OPEN
         if pr.merged:
             state = PRState.MERGED
@@ -347,6 +360,9 @@ class GitHubClient:
         elif review_state == "APPROVED":
             state = PRState.APPROVED
         elif review_state == "CHANGES_REQUESTED":
+            state = PRState.CHANGES_REQUESTED
+        elif has_suggestions:
+            # COMMENTED review with suggestions = needs changes applied
             state = PRState.CHANGES_REQUESTED
         elif requested_reviewers:
             # If review has been requested, this takes priority over draft
