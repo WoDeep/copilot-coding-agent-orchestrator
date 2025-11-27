@@ -19,13 +19,13 @@ sys.path.insert(0, str(Path(__file__).parent))
 from automation_engine import AutomationEngine, WorkflowState
 from github_client import PRState
 
-# Paths
-SCRIPT_DIR = Path(__file__).parent
-PID_FILE = SCRIPT_DIR / "daemon.pid"
-STATUS_FILE = SCRIPT_DIR / "daemon_status.json"
-LOG_FILE = SCRIPT_DIR / "daemon.log"
-REVIEW_TRACKER_FILE = SCRIPT_DIR / "review_tracker.json"
-WORKFLOW_HISTORY_FILE = SCRIPT_DIR / "workflow_history.json"
+# Paths - PROJECT_ROOT is the main project directory (parent of src/)
+PROJECT_ROOT = Path(__file__).parent.parent
+PID_FILE = PROJECT_ROOT / "daemon.pid"
+STATUS_FILE = PROJECT_ROOT / "daemon_status.json"
+LOG_FILE = PROJECT_ROOT / "daemon.log"
+REVIEW_TRACKER_FILE = PROJECT_ROOT / "review_tracker.json"
+WORKFLOW_HISTORY_FILE = PROJECT_ROOT / "workflow_history.json"
 
 # Setup logging
 logging.basicConfig(
@@ -77,7 +77,7 @@ class CooldownManager:
     
     def __init__(self, cooldown_minutes: int = 60):
         self.cooldown_minutes = cooldown_minutes
-        self.last_completion_file = SCRIPT_DIR / "last_assignment.json"  # Keep filename for backward compat
+        self.last_completion_file = PROJECT_ROOT / "last_assignment.json"  # Keep filename for backward compat
     
     def can_assign(self) -> tuple[bool, Optional[int]]:
         """
@@ -315,7 +315,7 @@ class AutomationDaemon:
         self._write_pid()
         
         # Initialize engine
-        config_path = SCRIPT_DIR / "config.yaml"
+        config_path = PROJECT_ROOT / "config.yaml"
         self.engine = AutomationEngine(config_path=str(config_path))
         
         # Initialize cooldown from config (default 60 min if not specified)
