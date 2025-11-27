@@ -365,17 +365,46 @@ class AutomationDaemon:
         auto_config = self.engine.config.get('automation', {})
         
         # Check if this PR already had its review cycle completed
-        # If so, skip any review-related actions and just wait for approval/merge
+        # If so, handle the final steps: mark ready for review, get approval, merge
         if item.pr_number and self.review_tracker.is_review_done(item.pr_number):
-            # Review already done - only handle APPROVED state
-            if item.state == WorkflowState.APPROVED and auto_config.get('auto_merge', True):
-                logger.info(f"[{item.issue_id}] PR approved (review was done) - merging")
-                if self.engine.client.merge_pr(item.pr_number):
-                    item.state = WorkflowState.MERGED
-                    item.last_action = "Merged PR"
+            # Review already done - check for approval or need to finalize
+            pr = self.engine.client.get_pr_by_number(item.pr_number)
+            if not pr:
+                return None
+            
+            # Step 1: If PR is still draft, mark it ready for review
+            if pr.is_draft:
+                logger.info(f"[{item.issue_id}] Review cycle complete - marking PR as ready for review")
+                if self.engine.client.mark_pr_ready_for_review(item.pr_number):
+                    item.last_action = "Marked PR as ready for review"
                     item.last_action_time = datetime.now()
-                    self.review_tracker.clear_pr(item.pr_number)  # Clean up tracker
-                    return f"Merged PR #{item.pr_number}"
+                    return f"Marked PR #{item.pr_number} as ready for review (review cycle complete)"
+                else:
+                    logger.warning(f"[{item.issue_id}] Failed to mark PR as ready for review")
+                    return None
+            
+            # Step 2: If PR is approved, merge it
+            if pr.state == PRState.APPROVED or item.state == WorkflowState.APPROVED:
+                item.state = WorkflowState.APPROVED
+                logger.info(f"[{item.issue_id}] PR approved - proceeding to merge")
+                if auto_config.get('auto_merge', True):
+                    if self.engine.client.merge_pr(item.pr_number):
+                        item.state = WorkflowState.MERGED
+                        item.last_action = "Merged PR after approval"
+                        item.last_action_time = datetime.now()
+                        self.review_tracker.clear_pr(item.pr_number)
+                        return f"Merged PR #{item.pr_number} after approval"
+            
+            # Step 3: If changes were applied (not showing CHANGES_REQUESTED anymore), request final review
+            elif pr.state not in [PRState.CHANGES_REQUESTED] and item.state in [WorkflowState.APPLYING_CHANGES, WorkflowState.CHANGES_REQUESTED]:
+                # Changes were applied - request a final Copilot review to get approval
+                logger.info(f"[{item.issue_id}] Changes applied, requesting final Copilot review for approval")
+                if self.engine.client.request_review_from_copilot(item.pr_number):
+                    item.state = WorkflowState.REVIEWING
+                    item.last_action = "Requested final Copilot review after changes applied"
+                    item.last_action_time = datetime.now()
+                    return f"Requested final review on PR #{item.pr_number} to get approval"
+            
             # Otherwise, just wait - don't trigger more review cycles
             return None
         

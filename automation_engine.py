@@ -322,6 +322,27 @@ class AutomationEngine:
                 item.last_action_time = datetime.now()
                 return f"Told Copilot to apply changes on PR #{item.pr_number}"
         
+        # State: Applying changes - check if changes have been applied
+        # Action: If PR no longer shows CHANGES_REQUESTED, request another review
+        if item.state == WorkflowState.APPLYING_CHANGES and item.pr_number:
+            pr = self.client.get_pr_by_number(item.pr_number)
+            if pr:
+                if pr.state == PRState.APPROVED:
+                    # Changes applied and approved!
+                    item.state = WorkflowState.APPROVED
+                    item.last_action = "Changes applied and approved"
+                    item.last_action_time = datetime.now()
+                    return f"PR #{item.pr_number} changes applied and approved"
+                elif pr.state not in [PRState.CHANGES_REQUESTED]:
+                    # Changes have been applied (PR no longer showing changes requested)
+                    # Request another review to verify
+                    logger.info(f"[{item.issue_id}] Changes applied - requesting follow-up review")
+                    if self.client.request_review_from_copilot(item.pr_number):
+                        item.state = WorkflowState.REVIEWING
+                        item.last_action = "Requested follow-up review after changes applied"
+                        item.last_action_time = datetime.now()
+                        return f"Requested follow-up review on PR #{item.pr_number} after changes applied"
+        
         # State: Approved and auto_merge enabled
         # Action: Merge the PR
         if item.state == WorkflowState.APPROVED and item.pr_number and auto_config.get('auto_merge', True):

@@ -90,6 +90,7 @@ class PRInfo:
     linked_issue: Optional[str]
     mergeable: bool
     checks_passed: bool
+    is_draft: bool = False
 
 
 class GitHubClient:
@@ -312,6 +313,37 @@ class GitHubClient:
             print(f"Error commenting: {e}")
             return False
     
+    def mark_pr_ready_for_review(self, pr_number: int) -> bool:
+        """Mark a draft PR as ready for review using the MCP server"""
+        import asyncio
+        from mcp_client import GitHubMCPClient
+        
+        async def _mark_ready():
+            try:
+                async with GitHubMCPClient(self.token) as mcp:
+                    result = await mcp.call_tool(
+                        "update_pull_request",
+                        {
+                            "owner": self.owner,
+                            "repo": self.repo_name,
+                            "pullNumber": pr_number,
+                            "draft": False
+                        }
+                    )
+                    
+                    if result.success:
+                        print(f"Successfully marked PR #{pr_number} as ready for review")
+                        return True
+                    else:
+                        print(f"Failed to mark PR ready: {result.error}")
+                        return False
+                        
+            except Exception as e:
+                print(f"Error marking PR ready for review: {e}")
+                return False
+        
+        return asyncio.run(_mark_ready())
+    
     def merge_pr(self, pr_number: int, merge_method: str = "squash") -> bool:
         """Merge a pull request"""
         try:
@@ -330,19 +362,30 @@ class GitHubClient:
         # Determine review state
         reviews = list(pr.get_reviews())
         review_state = None
-        has_suggestions = False
+        has_pending_suggestions = False
+        
+        # Get the latest commit SHA for the PR
+        latest_commit_sha = pr.head.sha
+        
         if reviews:
             latest_review = reviews[-1]
             review_state = latest_review.state
             
-            # Check if there are review comments with suggestions
+            # Check if there are review comments with suggestions that haven't been addressed
             # COMMENTED reviews with suggestions should be treated like CHANGES_REQUESTED
+            # BUT only if there are no commits after the suggestion was made
             if review_state == "COMMENTED":
                 try:
                     review_comments = list(pr.get_review_comments())
                     for comment in review_comments:
                         if "```suggestion" in (comment.body or ""):
-                            has_suggestions = True
+                            # Check if this suggestion was made on an older commit
+                            # If the PR has new commits since the suggestion, it's been addressed
+                            suggestion_commit = comment.commit_id if hasattr(comment, 'commit_id') else None
+                            if suggestion_commit and suggestion_commit != latest_commit_sha:
+                                # There's a newer commit - suggestion was likely addressed
+                                continue
+                            has_pending_suggestions = True
                             break
                 except:
                     pass
@@ -351,7 +394,7 @@ class GitHubClient:
         requested_reviewers = [r.login for r in pr.get_review_requests()[0]]
         
         # Check PR state - order matters!
-        # Priority: merged > closed > approved > changes_requested > suggestions > review_requested > draft > open
+        # Priority: merged > closed > approved > changes_requested > pending_suggestions > review_requested > draft > open
         state = PRState.OPEN
         if pr.merged:
             state = PRState.MERGED
@@ -361,8 +404,8 @@ class GitHubClient:
             state = PRState.APPROVED
         elif review_state == "CHANGES_REQUESTED":
             state = PRState.CHANGES_REQUESTED
-        elif has_suggestions:
-            # COMMENTED review with suggestions = needs changes applied
+        elif has_pending_suggestions:
+            # COMMENTED review with pending suggestions = needs changes applied
             state = PRState.CHANGES_REQUESTED
         elif requested_reviewers:
             # If review has been requested, this takes priority over draft
@@ -403,7 +446,8 @@ class GitHubClient:
             url=pr.html_url,
             linked_issue=linked_issue,
             mergeable=pr.mergeable or False,
-            checks_passed=checks_passed
+            checks_passed=checks_passed,
+            is_draft=pr.draft
         )
     
     # ========== UTILITY ==========
