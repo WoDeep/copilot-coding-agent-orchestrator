@@ -1,0 +1,8 @@
+# GitHub Copilot Coding Agent Orchestrator Dependencies
+
+streamlit>=1.28.0
+PyGithub>=2.1.1
+pyyaml>=6.0
+pandas>=2.0.0
+httpx>=0.25.0  # For MCP client HTTP requests
+python-dotenv>=1.0.0  # For .env file loading

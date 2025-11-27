@@ -1,0 +1,507 @@
+"""
+Background Daemon for Copilot Coding Agent Orchestrator Copilot Automation
+Runs as a separate process, controlled via PID file and status file
+"""
+
+import os
+import sys
+import json
+import time
+import signal
+import logging
+from pathlib import Path
+from datetime import datetime, timedelta
+from typing import Optional, Set
+
+# Add parent directory to path
+sys.path.insert(0, str(Path(__file__).parent))
+
+from automation_engine import AutomationEngine, WorkflowState
+from github_client import PRState
+
+# Paths
+SCRIPT_DIR = Path(__file__).parent
+PID_FILE = SCRIPT_DIR / "daemon.pid"
+STATUS_FILE = SCRIPT_DIR / "daemon_status.json"
+LOG_FILE = SCRIPT_DIR / "daemon.log"
+REVIEW_TRACKER_FILE = SCRIPT_DIR / "review_tracker.json"
+
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(LOG_FILE),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
+
+
+class DaemonStatus:
+    """Manages daemon status file for UI communication"""
+    
+    @staticmethod
+    def write(status: dict):
+        """Write status to file"""
+        status['updated_at'] = datetime.now().isoformat()
+        with open(STATUS_FILE, 'w') as f:
+            json.dump(status, f, indent=2, default=str)
+    
+    @staticmethod
+    def read() -> dict:
+        """Read status from file"""
+        if STATUS_FILE.exists():
+            try:
+                with open(STATUS_FILE) as f:
+                    return json.load(f)
+            except:
+                pass
+        return {"running": False, "message": "Daemon not started"}
+    
+    @staticmethod
+    def clear():
+        """Clear status file"""
+        if STATUS_FILE.exists():
+            STATUS_FILE.unlink()
+
+
+class CooldownManager:
+    """Manages cooldown between issue assignments"""
+    
+    def __init__(self, cooldown_minutes: int = 60):
+        self.cooldown_minutes = cooldown_minutes
+        self.last_assignment_file = SCRIPT_DIR / "last_assignment.json"
+    
+    def can_assign(self) -> tuple[bool, Optional[int]]:
+        """
+        Check if we can assign a new issue.
+        Returns (can_assign, minutes_remaining)
+        """
+        if not self.last_assignment_file.exists():
+            return True, None
+        
+        try:
+            with open(self.last_assignment_file) as f:
+                data = json.load(f)
+            
+            last_time = datetime.fromisoformat(data['timestamp'])
+            cooldown_end = last_time + timedelta(minutes=self.cooldown_minutes)
+            
+            if datetime.now() >= cooldown_end:
+                return True, None
+            
+            remaining = (cooldown_end - datetime.now()).total_seconds() / 60
+            return False, int(remaining)
+        except:
+            return True, None
+    
+    def record_assignment(self, issue_id: str):
+        """Record that we just assigned an issue"""
+        with open(self.last_assignment_file, 'w') as f:
+            json.dump({
+                'issue_id': issue_id,
+                'timestamp': datetime.now().isoformat()
+            }, f)
+    
+    def get_last_assignment(self) -> Optional[dict]:
+        """Get info about last assignment"""
+        if not self.last_assignment_file.exists():
+            return None
+        try:
+            with open(self.last_assignment_file) as f:
+                return json.load(f)
+        except:
+            return None
+
+
+class ReviewTracker:
+    """
+    Tracks which PRs have had their review cycle completed.
+    This prevents the infinite loop where:
+    1. Copilot reviews PR → requests changes
+    2. Daemon tells Copilot to apply changes  
+    3. Copilot applies changes and re-requests review
+    4. Daemon sees review request → triggers another review (LOOP!)
+    
+    Solution: Once we've told Copilot to apply changes, mark the PR as
+    "review_done". After that, skip any more review assignments and
+    just wait for approval/merge.
+    """
+    
+    def __init__(self):
+        self.tracker_file = REVIEW_TRACKER_FILE
+        self._data = self._load()
+    
+    def _load(self) -> dict:
+        """Load tracker data from file"""
+        if self.tracker_file.exists():
+            try:
+                with open(self.tracker_file) as f:
+                    return json.load(f)
+            except:
+                pass
+        return {"review_completed_prs": {}}
+    
+    def _save(self):
+        """Save tracker data to file"""
+        with open(self.tracker_file, 'w') as f:
+            json.dump(self._data, f, indent=2, default=str)
+    
+    def mark_review_done(self, pr_number: int, issue_id: str):
+        """Mark a PR as having had its review cycle completed"""
+        self._data["review_completed_prs"][str(pr_number)] = {
+            "issue_id": issue_id,
+            "marked_at": datetime.now().isoformat()
+        }
+        self._save()
+        logger.info(f"Marked PR #{pr_number} as review_done (will skip further review triggers)")
+    
+    def is_review_done(self, pr_number: int) -> bool:
+        """Check if a PR has already had its review cycle completed"""
+        return str(pr_number) in self._data.get("review_completed_prs", {})
+    
+    def clear_pr(self, pr_number: int):
+        """Clear the review done flag for a PR (e.g., if it was closed and reopened)"""
+        if str(pr_number) in self._data.get("review_completed_prs", {}):
+            del self._data["review_completed_prs"][str(pr_number)]
+            self._save()
+    
+    def get_info(self) -> dict:
+        """Get tracker info for status display"""
+        return {
+            "tracked_prs": list(self._data.get("review_completed_prs", {}).keys())
+        }
+
+
+class AutomationDaemon:
+    """
+    Background daemon that runs the automation loop
+    """
+    
+    def __init__(self):
+        self.engine: Optional[AutomationEngine] = None
+        self.running = False
+        self.cooldown: Optional[CooldownManager] = None  # Initialize after config loaded
+        self.review_tracker = ReviewTracker()  # Track review completion to avoid infinite loops
+        
+        # Register signal handlers
+        signal.signal(signal.SIGTERM, self._handle_signal)
+        signal.signal(signal.SIGINT, self._handle_signal)
+    
+    def _handle_signal(self, signum, frame):
+        """Handle shutdown signals"""
+        logger.info(f"Received signal {signum}, shutting down...")
+        self.stop()
+    
+    def _write_pid(self):
+        """Write PID file"""
+        with open(PID_FILE, 'w') as f:
+            f.write(str(os.getpid()))
+    
+    def _remove_pid(self):
+        """Remove PID file"""
+        if PID_FILE.exists():
+            PID_FILE.unlink()
+    
+    @staticmethod
+    def is_running() -> bool:
+        """Check if daemon is already running"""
+        if not PID_FILE.exists():
+            return False
+        
+        try:
+            with open(PID_FILE) as f:
+                pid = int(f.read().strip())
+            
+            # Check if process exists
+            os.kill(pid, 0)
+            return True
+        except (ProcessLookupError, ValueError):
+            # Process doesn't exist, clean up stale PID file
+            PID_FILE.unlink()
+            return False
+    
+    @staticmethod
+    def get_pid() -> Optional[int]:
+        """Get daemon PID if running"""
+        if not PID_FILE.exists():
+            return None
+        try:
+            with open(PID_FILE) as f:
+                return int(f.read().strip())
+        except:
+            return None
+    
+    def start(self):
+        """Start the daemon"""
+        if self.is_running():
+            logger.error("Daemon is already running!")
+            return False
+        
+        logger.info("Starting automation daemon...")
+        self._write_pid()
+        
+        # Initialize engine
+        config_path = SCRIPT_DIR / "config.yaml"
+        self.engine = AutomationEngine(config_path=str(config_path))
+        
+        # Initialize cooldown from config (default 60 min if not specified)
+        cooldown_mins = self.engine.config.get('automation', {}).get('cooldown_minutes', 60)
+        self.cooldown = CooldownManager(cooldown_minutes=cooldown_mins)
+        logger.info(f"Cooldown set to {cooldown_mins} minutes from config")
+        
+        if not self.engine.connect():
+            logger.error("Failed to connect to GitHub")
+            DaemonStatus.write({
+                "running": False,
+                "error": "Failed to connect to GitHub"
+            })
+            self._remove_pid()
+            return False
+        
+        self.running = True
+        self._run_loop()
+        return True
+    
+    def stop(self):
+        """Stop the daemon"""
+        self.running = False
+        DaemonStatus.write({
+            "running": False,
+            "message": "Daemon stopped"
+        })
+        self._remove_pid()
+        logger.info("Daemon stopped")
+    
+    def _run_loop(self):
+        """Main daemon loop"""
+        poll_interval = self.engine.config.get('automation', {}).get('poll_interval', 60)
+        
+        logger.info(f"Daemon running (poll interval: {poll_interval}s, cooldown: {self.cooldown.cooldown_minutes}min)")
+        
+        while self.running:
+            try:
+                self._process_cycle()
+            except Exception as e:
+                logger.error(f"Error in cycle: {e}")
+                DaemonStatus.write({
+                    "running": True,
+                    "error": str(e),
+                    "last_cycle": datetime.now().isoformat()
+                })
+            
+            # Sleep in small increments to respond to stop signals
+            for _ in range(poll_interval):
+                if not self.running:
+                    break
+                time.sleep(1)
+        
+        self.stop()
+    
+    def _process_cycle(self):
+        """Process one automation cycle with cooldown awareness"""
+        self.engine.refresh_status()
+        
+        actions_taken = []
+        
+        # Check cooldown status
+        can_assign, minutes_remaining = self.cooldown.can_assign()
+        
+        for item in self.engine.state.queue:
+            action = self._process_item_with_cooldown(item, can_assign)
+            if action:
+                actions_taken.append(action)
+                # If we just assigned something, update cooldown state
+                if "Assigned" in action:
+                    can_assign = False
+                    _, minutes_remaining = self.cooldown.can_assign()
+        
+        # Update status file
+        status = self.engine.get_current_status()
+        
+        # Include per-item state for UI synchronization
+        item_states = {}
+        for item in self.engine.state.queue:
+            item_states[item.issue_id] = {
+                "state": item.state.value,
+                "issue_number": item.issue_number,
+                "pr_number": item.pr_number,
+                "last_action": item.last_action,
+                "last_action_time": item.last_action_time.isoformat() if item.last_action_time else None,
+                "review_done": self.review_tracker.is_review_done(item.pr_number) if item.pr_number else False
+            }
+        
+        DaemonStatus.write({
+            "running": True,
+            "last_cycle": datetime.now().isoformat(),
+            "actions": actions_taken,
+            "cooldown": {
+                "can_assign": can_assign,
+                "minutes_remaining": minutes_remaining,
+                "last_assignment": self.cooldown.get_last_assignment()
+            },
+            "queue_status": {
+                "total": status['total'],
+                "in_progress": len(status['in_progress']),
+                "queued": len(status['queued']),
+                "completed": len(status['completed'])
+            },
+            "item_states": item_states,
+            "review_tracker": self.review_tracker.get_info()
+        })
+        
+        if actions_taken:
+            for action in actions_taken:
+                logger.info(f"Action: {action}")
+        else:
+            logger.debug("No actions needed this cycle")
+    
+    def _process_item_with_cooldown(self, item, can_assign: bool) -> Optional[str]:
+        """Process a single item, respecting cooldown for assignments"""
+        if not self.engine.client:
+            return None
+        
+        auto_config = self.engine.config.get('automation', {})
+        
+        # Check if this PR already had its review cycle completed
+        # If so, skip any review-related actions and just wait for approval/merge
+        if item.pr_number and self.review_tracker.is_review_done(item.pr_number):
+            # Review already done - only handle APPROVED state
+            if item.state == WorkflowState.APPROVED and auto_config.get('auto_merge', True):
+                logger.info(f"[{item.issue_id}] PR approved (review was done) - merging")
+                if self.engine.client.merge_pr(item.pr_number):
+                    item.state = WorkflowState.MERGED
+                    item.last_action = "Merged PR"
+                    item.last_action_time = datetime.now()
+                    self.review_tracker.clear_pr(item.pr_number)  # Clean up tracker
+                    return f"Merged PR #{item.pr_number}"
+            # Otherwise, just wait - don't trigger more review cycles
+            return None
+        
+        # State: PR_OPEN (not draft) → Request review from Copilot (no cooldown)
+        if item.state == WorkflowState.PR_OPEN and item.pr_number:
+            # Check if PR is ready for review (not a draft)
+            pr = self.engine.client.get_pr_by_number(item.pr_number)
+            if pr and pr.state != PRState.DRAFT and not pr.reviewers:
+                logger.info(f"[{item.issue_id}] PR ready - requesting Copilot review")
+                if self.engine.client.request_review_from_copilot(item.pr_number):
+                    item.state = WorkflowState.REVIEW_REQUESTED
+                    item.last_action = "Requested Copilot review"
+                    item.last_action_time = datetime.now()
+                    return f"Requested Copilot review for PR #{item.pr_number}"
+        
+        # State: Review requested → Reassign to Copilot (no cooldown)
+        if item.state == WorkflowState.REVIEW_REQUESTED and item.pr_number:
+            logger.info(f"[{item.issue_id}] Review requested - reassigning to Copilot")
+            if self.engine.client.request_review_from_copilot(item.pr_number):
+                item.state = WorkflowState.REVIEWING
+                item.last_action = "Reassigned review to Copilot"
+                item.last_action_time = datetime.now()
+                return f"Reassigned review of PR #{item.pr_number} to Copilot"
+        
+        # State: Changes requested → Comment to apply (no cooldown)
+        # ALSO: Mark the review as done to prevent infinite loop
+        if item.state == WorkflowState.CHANGES_REQUESTED and item.pr_number:
+            logger.info(f"[{item.issue_id}] Changes requested - telling Copilot to apply")
+            if self.engine.client.comment_apply_changes(item.pr_number):
+                # CRITICAL: Mark review as done BEFORE state change
+                # This prevents the loop when Copilot re-requests review after applying changes
+                self.review_tracker.mark_review_done(item.pr_number, item.issue_id)
+                
+                item.state = WorkflowState.APPLYING_CHANGES
+                item.last_action = "Commented @copilot apply changes"
+                item.last_action_time = datetime.now()
+                return f"Told Copilot to apply changes on PR #{item.pr_number}"
+        
+        # State: Approved → Merge (no cooldown)
+        if item.state == WorkflowState.APPROVED and item.pr_number and auto_config.get('auto_merge', True):
+            logger.info(f"[{item.issue_id}] PR approved - merging")
+            if self.engine.client.merge_pr(item.pr_number):
+                item.state = WorkflowState.MERGED
+                item.last_action = "Merged PR"
+                item.last_action_time = datetime.now()
+                return f"Merged PR #{item.pr_number}"
+        
+        # State: Queued → Assign to Copilot (WITH COOLDOWN)
+        if item.state == WorkflowState.QUEUED and auto_config.get('auto_assign_next', True):
+            # Only assign if cooldown allows
+            if not can_assign:
+                return None
+            
+            # Check if it's the first queued item and no active items
+            first_queued = next((i for i in self.engine.state.queue if i.state == WorkflowState.QUEUED), None)
+            active_items = [i for i in self.engine.state.queue 
+                          if i.state not in [WorkflowState.QUEUED, WorkflowState.MERGED, WorkflowState.COMPLETED]]
+            
+            if first_queued == item and not active_items and item.issue_number:
+                logger.info(f"[{item.issue_id}] Assigning to Copilot (cooldown starts)")
+                
+                # Get instructions and target branch from config
+                instructions = self.engine.config.get('agent_instructions', '')
+                target_branch = self.engine.config.get('github', {}).get('target_branch', 'main_dev')
+                
+                if self.engine.client.assign_issue_to_copilot(
+                    item.issue_number, 
+                    instructions=instructions,
+                    target_branch=target_branch
+                ):
+                    # Record cooldown
+                    self.cooldown.record_assignment(item.issue_id)
+                    
+                    item.state = WorkflowState.ASSIGNED
+                    item.last_action = "Assigned to Copilot"
+                    item.last_action_time = datetime.now()
+                    return f"Assigned issue #{item.issue_number} ({item.issue_id}) to Copilot - cooldown started"
+        
+        return None
+
+
+def start_daemon():
+    """Start the daemon (called from CLI or UI)"""
+    daemon = AutomationDaemon()
+    daemon.start()
+
+
+def stop_daemon():
+    """Stop the daemon"""
+    pid = AutomationDaemon.get_pid()
+    if pid:
+        try:
+            os.kill(pid, signal.SIGTERM)
+            logger.info(f"Sent SIGTERM to daemon (PID {pid})")
+            return True
+        except ProcessLookupError:
+            logger.warning("Daemon process not found, cleaning up...")
+            if PID_FILE.exists():
+                PID_FILE.unlink()
+            DaemonStatus.clear()
+    else:
+        logger.warning("Daemon is not running")
+    return False
+
+
+def get_daemon_status() -> dict:
+    """Get current daemon status"""
+    is_running = AutomationDaemon.is_running()
+    status = DaemonStatus.read()
+    status['is_running'] = is_running
+    status['pid'] = AutomationDaemon.get_pid()
+    return status
+
+
+if __name__ == "__main__":
+    import argparse
+    
+    parser = argparse.ArgumentParser(description="Copilot Coding Agent Orchestrator Automation Daemon")
+    parser.add_argument("command", choices=["start", "stop", "status"], help="Daemon command")
+    
+    args = parser.parse_args()
+    
+    if args.command == "start":
+        start_daemon()
+    elif args.command == "stop":
+        stop_daemon()
+    elif args.command == "status":
+        status = get_daemon_status()
+        print(json.dumps(status, indent=2, default=str))

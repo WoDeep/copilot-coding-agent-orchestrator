@@ -1,0 +1,21 @@
+# Generated files (contain secrets)
+.env
+config.yaml
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.venv/
+
+# Runtime files
+daemon.pid
+daemon.log
+daemon_status.json
+last_assignment.json
+
+# IDE
+.idea/
+.vscode/
+*.swp
