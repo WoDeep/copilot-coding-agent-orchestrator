@@ -62,6 +62,14 @@ st.markdown("""
         color: #e8e8e8 !important;
     }
     
+    [data-testid="stSidebar"] code {
+        background: rgba(102, 126, 234, 0.3) !important;
+        color: #a5b4fc !important;
+        padding: 0.2rem 0.5rem;
+        border-radius: 4px;
+        font-weight: 500;
+    }
+    
     [data-testid="stSidebar"] .stButton button {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         border: none;
