@@ -293,12 +293,11 @@ def sync_item_states_from_daemon():
 
 # ========== SIDEBAR ==========
 with st.sidebar:
-    # Logo and branding
+    # Logo and branding with link
     if AVATAR_PATH.exists():
-        st.image(str(AVATAR_PATH), width=60)
+        st.markdown(f'<a href="https://www.swaibian.com" target="_blank"><img src="data:image/png;base64,{base64.b64encode(open(AVATAR_PATH, "rb").read()).decode()}" width="60"></a>', unsafe_allow_html=True)
     
-    st.markdown("### Swaibian")
-    st.markdown("**Agentic Pipeline**")
+    st.markdown("### Swaibian Agentic Pipeline")
     st.caption(f"Managing: `{REPO_FULL}`")
     
     st.divider()
@@ -432,7 +431,7 @@ logo_path = Path(__file__).parent / "swaibian_white.png"
 if logo_path.exists():
     with open(logo_path, "rb") as f:
         logo_b64 = base64.b64encode(f.read()).decode()
-    header_logo = f'<img src="data:image/png;base64,{logo_b64}" style="height: 48px; vertical-align: bottom; margin-right: 8px;">'
+    header_logo = f'<a href="https://www.swaibian.com" target="_blank" style="text-decoration: none;"><img src="data:image/png;base64,{logo_b64}" style="height: 48px; vertical-align: bottom; margin-right: 8px;"></a>'
 else:
     header_logo = ""
 
