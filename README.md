@@ -1,21 +1,42 @@
-# 🚀 Swaibian Agentic Pipeline
+<p align="center">
+  <img src="assets/swaibian_white.png" alt="Swaibian Logo" width="200"/>
+</p>
 
-A modern web application for autonomous AI-powered development workflows. Configure any GitHub repository and let the pipeline automatically assign issues to Copilot, manage PR reviews, apply changes, and track progress.
+<h1 align="center">🚀 Swaibian Agentic Pipeline</h1>
 
-![Swaibian](swaibian_logo_white.svg)
+<p align="center">
+  <strong>Autonomous AI-powered development workflows with GitHub Copilot</strong>
+</p>
 
-## Features
+<p align="center">
+  <a href="#features">Features</a> •
+  <a href="#quick-start">Quick Start</a> •
+  <a href="#how-it-works">How It Works</a> •
+  <a href="#configuration">Configuration</a> •
+  <a href="#contributing">Contributing</a>
+</p>
 
-- 🔧 **Setup Wizard**: Easy first-time configuration with guided setup
-- 📋 **Queue Management**: View, reorder, add, and remove issues from the development queue
-- 🔄 **Real-time Monitoring**: Live status of all issues and PRs with workflow history
-- 🤖 **Autonomous Pipeline**: Start/stop automated workflow processing
-- ⏱️ **Smart Cooldowns**: Rate-limit issue assignments (configurable)
-- 📝 **Agent Instructions**: Automatically include implementation guidelines
-- 🔌 **MCP Integration**: Uses GitHub's official MCP Server for Copilot assignment
-- ✨ **Auto-Apply Changes**: Detects Copilot reviews and triggers change application
+<p align="center">
+  <img src="https://img.shields.io/badge/python-3.9+-blue.svg" alt="Python 3.9+"/>
+  <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License: MIT"/>
+  <img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" alt="PRs Welcome"/>
+  <img src="https://img.shields.io/github/stars/WoDeep/copilot-coding-agent-orchestrator?style=social" alt="GitHub Stars"/>
+</p>
 
-## Quick Start
+---
+
+## ✨ Features
+
+- 🔧 **Setup Wizard** - Easy first-time configuration with guided setup
+- 📋 **Queue Management** - View, reorder, add, and remove issues from the development queue
+- 🔄 **Real-time Monitoring** - Live status of all issues and PRs with workflow history
+- 🤖 **Autonomous Pipeline** - Start/stop automated workflow processing
+- ⏱️ **Smart Cooldowns** - Rate-limit issue assignments (configurable)
+- 📝 **Agent Instructions** - Automatically include implementation guidelines
+- 🔌 **MCP Integration** - Uses GitHub's official MCP Server for Copilot assignment
+- ✨ **Auto-Apply Changes** - Detects Copilot reviews and triggers change application
+
+## 🚀 Quick Start
 
 ### 1. Start the Application
 
@@ -32,109 +53,92 @@ This will:
 
 On first launch, you'll be guided through a 5-step setup wizard:
 
-1. **GitHub Token**: Enter your Personal Access Token
-2. **Repository**: Select which repository to automate
-3. **Issues**: Choose which issues to add to the queue
-4. **Configure**: Set automation preferences (cooldown, auto-merge, etc.)
-5. **Complete**: Review and start using the pipeline
+1. **GitHub Token** - Enter your Personal Access Token
+2. **Repository** - Select which repository to automate
+3. **Issues** - Choose which issues to add to the queue
+4. **Configure** - Set automation preferences (cooldown, auto-merge, etc.)
+5. **Complete** - Review and start using the pipeline
 
 ### 3. Token Requirements
 
 Your GitHub Personal Access Token needs these permissions:
 - `repo` (full control of private repositories)
 - `workflow` (if you need to trigger workflows)
+- GitHub Copilot subscription (for issue assignment)
 
-## How It Works
+## ⚙️ How It Works
 
 ### The Automation Loop
+
+```
+┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
+│  Copilot wants  │ ──► │ Auto-reassign    │ ──► │ Copilot reviews │
+│  your review    │     │ review to Copilot│     │ and suggests    │
+└─────────────────┘     └──────────────────┘     └────────┬────────┘
+                                                          │
+┌─────────────────┐     ┌──────────────────┐     ┌────────▼────────┐
+│   Start next    │ ◄── │   Auto-merge     │ ◄── │ Auto-apply      │
+│   issue         │     │   approved PR    │     │ changes         │
+└─────────────────┘     └──────────────────┘     └─────────────────┘
+```
 
 When the pipeline is running, it polls at regular intervals and:
 
 1. **When Copilot requests your review** → Auto-reassign review to Copilot
 2. **When Copilot suggests changes** → Auto-comment "@copilot apply changes"
 3. **When PR is approved** → Auto-merge into target branch
-4. **When PR is merged** → Wait for cooldown, then assign next issue to Copilot
+4. **When PR is merged** → Wait for cooldown, then assign next issue
 
 ### Cooldown System
 
 To prevent overwhelming the system, there's a configurable cooldown between issue assignments:
-
-- After assigning an issue, the daemon waits before assigning the next
+- Cooldown triggers after a PR is **merged** (not when assigned)
 - Other actions (review reassignment, applying changes, merging) have no cooldown
-- You can adjust the cooldown time in the UI Settings
+- Adjustable in the UI Settings
 
-### Agent Instructions
+## 📁 Project Structure
 
-When assigning issues to Copilot, the system includes detailed implementation instructions that you can customize:
-
-- Implementation workflow
-- Testing requirements
-- Documentation requirements
-- Any custom guidelines for your project
-
-These are configured in `config.yaml` under `agent_instructions`.
-
-## MCP Client
-
-This automation uses the **GitHub Remote MCP Server** at `https://api.githubcopilot.com/mcp/` 
-to properly assign issues to Copilot. This is the same API that VS Code and other IDEs use.
-
-### Available MCP Tools
-
-- `assign_copilot_to_issue` - Assign Copilot to work on an issue
-- `request_copilot_review` - Request Copilot to review a PR
-- Plus 38 other GitHub tools (issues, PRs, repos, etc.)
-
-### CLI Usage
-
-```bash
-# List available tools
-python mcp_client.py list-tools
-
-# Assign Copilot to an issue (after setup)
-python mcp_client.py assign OWNER REPO ISSUE_NUMBER
+```
+copilot-coding-agent-orchestrator/
+├── src/                      # Source code
+│   ├── app.py                # Streamlit dashboard
+│   ├── setup_wizard.py       # First-time setup
+│   ├── daemon.py             # Background daemon
+│   ├── automation_engine.py  # Core automation logic
+│   ├── github_client.py      # GitHub API client
+│   └── mcp_client.py         # MCP protocol client
+├── assets/                   # Branding assets
+│   ├── swaibian_white.png
+│   ├── swaibian_Avatar_white.png
+│   └── thankyou.jpg
+├── .github/                  # GitHub templates
+│   ├── CODEOWNERS
+│   ├── CONTRIBUTING.md
+│   ├── ISSUE_TEMPLATE/
+│   └── PULL_REQUEST_TEMPLATE.md
+├── config.example.yaml       # Example configuration
+├── .env.example              # Example environment
+├── requirements.txt          # Python dependencies
+├── start.sh                  # Start script
+├── LICENSE                   # MIT License
+└── README.md                 # This file
 ```
 
-## Dashboard Controls
-
-### Sidebar Controls
-
-| Control | Description |
-|---------|-------------|
-| 🔌 Connect to GitHub | Authenticate with your token |
-| 🔄 Refresh Status | Manually refresh issue/PR status |
-| ▶️ Start Daemon | Start background automation |
-| ⏹️ Stop Daemon | Stop background automation |
-| ▶️ Run Once | Execute one automation cycle manually |
-
-### Queue Tab
-- View all queued issues
-- Use ⬆️/⬇️ buttons to reorder
-- Add new issues to the queue
-
-### In Progress Tab
-- See all active issues (assigned, PR open, reviewing, etc.)
-- Manual action buttons for each state
-
-### Completed Tab
-- View all completed issues
-- Track overall progress
-
-## Configuration
+## 🔧 Configuration
 
 After running the setup wizard, your `config.yaml` will be generated:
 
 ```yaml
 github:
-  owner: YourUsername      # Repository owner
-  repo: YourRepo           # Repository name
-  target_branch: main      # Target branch for PRs
+  owner: YourUsername
+  repo: YourRepo
+  target_branch: main
 
 automation:
-  poll_interval: 60        # seconds between checks
-  auto_merge: true         # auto-merge approved PRs
-  auto_assign_next: true   # auto-assign next issue after merge
-  cooldown_minutes: 60     # minimum time between assignments
+  poll_interval: 60          # seconds between checks
+  auto_merge: true           # auto-merge approved PRs
+  auto_assign_next: true     # auto-assign next issue after merge
+  cooldown_minutes: 60       # minimum time between assignments
 
 agent_instructions: |
   Your custom implementation instructions...
@@ -142,96 +146,73 @@ agent_instructions: |
 issue_queue:
   - ISSUE-1
   - ISSUE-2
-  # ... your queue order
 ```
 
-### Resetting Configuration
+## 🖥️ CLI Usage
 
-To re-run the setup wizard:
-1. Click "Reset Config" in the Advanced Settings section of the sidebar
-2. Or delete `config.yaml` and `.env` files manually
-
-## CLI Usage
-
-You can also control the daemon directly:
+Control the daemon directly from the command line:
 
 ```bash
 # Start daemon
-python daemon.py start
+python src/daemon.py start
 
-# Stop daemon  
-python daemon.py stop
+# Stop daemon
+python src/daemon.py stop
 
 # Check status
-python daemon.py status
+python src/daemon.py status
 
-# Run automation once (without daemon)
-python automation_engine.py --once
+# Run automation once
+python src/automation_engine.py --once
 ```
 
-## Files
+### MCP Client
 
-```
-scripts/swaibian_automation/
-├── app.py                 # Streamlit dashboard
-├── setup_wizard.py        # First-time setup wizard
-├── daemon.py              # Background daemon process
-├── automation_engine.py   # Core automation logic
-├── github_client.py       # GitHub API client
-├── mcp_client.py          # MCP protocol client
-├── config.yaml            # Configuration (generated)
-├── .env                   # GitHub token (generated)
-├── requirements.txt       # Python dependencies
-├── start.sh              # Start script
-├── daemon.pid            # PID file (when running)
-├── daemon_status.json    # Status file (when running)
-├── daemon.log            # Log file
-└── README.md             # This file
+```bash
+# List available tools
+python src/mcp_client.py list-tools
+
+# Assign Copilot to an issue
+python src/mcp_client.py assign OWNER REPO ISSUE_NUMBER
 ```
 
-## Branch Strategy
+## 🤝 Contributing
 
-This automation uses an integration branch pattern:
+Contributions are welcome! Please read our [Contributing Guide](.github/CONTRIBUTING.md) first.
 
-```
-main (stable) ← manual merge when ready
-    ↑
-target_branch (integration) ← auto-merged PRs from Copilot
-    ↑
-feature branches (created by Copilot)
-```
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add: amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
-This keeps `main` stable while development happens on your target branch.
+## 🔒 Security
 
-## Troubleshooting
+Some files are protected and require owner approval to modify:
+- `assets/**` - Branding and logos
+- `README.md` - Documentation
+- `LICENSE` - License file
 
-### "Connection failed"
-- Check that your GitHub token is valid
-- Ensure the token has `repo` permissions
+## 📄 License
 
-### "Daemon won't start"
-- Check `daemon.log` for errors
-- Ensure no stale `daemon.pid` file exists
-- Verify GitHub token is set in `.env`
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-### "Cooldown seems stuck"
-- Check `last_assignment.json` for the timestamp
-- You can delete this file to reset the cooldown
+## 🙏 Support
 
-### "Issue not found"
-- Make sure the issue ID is correct
-- Refresh status in the UI
+If you find this project helpful, consider:
 
-### "Setup wizard not appearing"
-- Delete `config.yaml` to restart setup
-- Or use "Reset Config" in Advanced Settings
+<p align="center">
+  <a href="https://github.com/WoDeep/copilot-coding-agent-orchestrator">
+    <img src="https://img.shields.io/github/stars/WoDeep/copilot-coding-agent-orchestrator?style=social" alt="Star on GitHub"/>
+  </a>
+</p>
 
-## Requirements
+<p align="center">
+  <img src="assets/thankyou.jpg" alt="Thank You" width="200"/>
+</p>
 
-- Python 3.9+
-- GitHub Personal Access Token with `repo` permissions
-- GitHub Copilot subscription (for issue assignment to work)
+---
 
-## License
-
-MIT License
+<p align="center">
+  Made with ❤️ by <a href="https://github.com/WoDeep">Swaibian</a>
+</p>

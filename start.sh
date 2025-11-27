@@ -20,4 +20,4 @@ echo ""
 echo "   Press Ctrl+C to stop"
 echo ""
 
-streamlit run app.py --server.port 8642
+streamlit run src/app.py --server.port 8642
