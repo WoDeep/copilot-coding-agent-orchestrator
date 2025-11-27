@@ -361,6 +361,8 @@ class GitHubClient:
             return False
     
     def _to_pr_info(self, pr: PullRequest) -> PRInfo:
+        from datetime import datetime, timezone, timedelta
+        
         # Determine review state
         reviews = list(pr.get_reviews())
         review_state = None
@@ -369,22 +371,47 @@ class GitHubClient:
         copilot_is_working = False
         
         # Check if Copilot coding agent is currently working
-        # by looking at PR comments/timeline for "started work" vs "finished work"
+        # PRIMARY: Check if there are recent commits from Copilot (within last 2 minutes)
+        # This is more reliable than comment detection since Copilot may post comments
+        # before finishing all commits
         try:
-            comments = list(pr.get_issue_comments())
-            # Look for most recent Copilot status comment
-            for comment in reversed(comments):
-                body = comment.body or ""
-                # Copilot coding agent uses these phrases in timeline events
-                if "started work" in body.lower() and "copilot" in body.lower():
-                    copilot_is_working = True
-                    break
-                elif ("finished work" in body.lower() or "stopped work" in body.lower() or 
-                      "applied all review feedback" in body.lower()) and "copilot" in body.lower():
-                    copilot_is_working = False
-                    break
-        except:
-            pass
+            commits = list(pr.get_commits())
+            if commits:
+                last_commit = commits[-1]
+                commit_date = last_commit.commit.committer.date
+                # Make it timezone-aware if not already
+                if commit_date.tzinfo is None:
+                    commit_date = commit_date.replace(tzinfo=timezone.utc)
+                now = datetime.now(timezone.utc)
+                time_since_last_commit = now - commit_date
+                
+                # Check if the last commit was from Copilot and was very recent
+                committer = last_commit.committer
+                if committer and "copilot" in committer.login.lower():
+                    # If last commit was within the last 2 minutes, Copilot might still be working
+                    if time_since_last_commit < timedelta(minutes=2):
+                        copilot_is_working = True
+                        print(f"[DEBUG] Last Copilot commit was {time_since_last_commit.seconds}s ago - still working")
+        except Exception as e:
+            print(f"[DEBUG] Error checking commit timestamps: {e}")
+        
+        # SECONDARY: Also check comments for explicit "started work" / "finished work" markers
+        # (as a fallback, but commits are more reliable)
+        if not copilot_is_working:
+            try:
+                comments = list(pr.get_issue_comments())
+                # Look for most recent Copilot status comment
+                for comment in reversed(comments):
+                    body = comment.body or ""
+                    # Copilot coding agent uses these phrases in timeline events
+                    if "started work" in body.lower() and "copilot" in body.lower():
+                        copilot_is_working = True
+                        break
+                    elif ("finished work" in body.lower() or "stopped work" in body.lower()) and "copilot" in body.lower():
+                        copilot_is_working = False
+                        break
+            except:
+                pass
         
         # Get the latest commit SHA for the PR
         latest_commit_sha = pr.head.sha
