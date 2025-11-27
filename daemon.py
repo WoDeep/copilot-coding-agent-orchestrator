@@ -25,6 +25,7 @@ PID_FILE = SCRIPT_DIR / "daemon.pid"
 STATUS_FILE = SCRIPT_DIR / "daemon_status.json"
 LOG_FILE = SCRIPT_DIR / "daemon.log"
 REVIEW_TRACKER_FILE = SCRIPT_DIR / "review_tracker.json"
+WORKFLOW_HISTORY_FILE = SCRIPT_DIR / "workflow_history.json"
 
 # Setup logging
 logging.basicConfig(
@@ -174,6 +175,68 @@ class ReviewTracker:
         }
 
 
+class WorkflowHistory:
+    """
+    Tracks workflow events per issue for UI display.
+    Stores timestamped log of actions taken for each issue.
+    """
+    
+    MAX_EVENTS_PER_ISSUE = 50  # Keep last 50 events per issue
+    
+    def __init__(self):
+        self.history_file = WORKFLOW_HISTORY_FILE
+        self._data = self._load()
+    
+    def _load(self) -> dict:
+        """Load history data from file"""
+        if self.history_file.exists():
+            try:
+                with open(self.history_file) as f:
+                    return json.load(f)
+            except:
+                pass
+        return {"issues": {}}
+    
+    def _save(self):
+        """Save history data to file"""
+        with open(self.history_file, 'w') as f:
+            json.dump(self._data, f, indent=2, default=str)
+    
+    def add_event(self, issue_id: str, event: str, state: str = None, pr_number: int = None):
+        """Add a workflow event for an issue"""
+        if issue_id not in self._data["issues"]:
+            self._data["issues"][issue_id] = []
+        
+        event_entry = {
+            "timestamp": datetime.now().isoformat(),
+            "event": event,
+            "state": state,
+            "pr_number": pr_number
+        }
+        
+        self._data["issues"][issue_id].append(event_entry)
+        
+        # Keep only last N events
+        if len(self._data["issues"][issue_id]) > self.MAX_EVENTS_PER_ISSUE:
+            self._data["issues"][issue_id] = self._data["issues"][issue_id][-self.MAX_EVENTS_PER_ISSUE:]
+        
+        self._save()
+    
+    def get_history(self, issue_id: str) -> list:
+        """Get workflow history for an issue"""
+        return self._data.get("issues", {}).get(issue_id, [])
+    
+    def get_all_histories(self) -> dict:
+        """Get all workflow histories"""
+        return self._data.get("issues", {})
+    
+    def clear_issue(self, issue_id: str):
+        """Clear history for an issue"""
+        if issue_id in self._data.get("issues", {}):
+            del self._data["issues"][issue_id]
+            self._save()
+
+
 class AutomationDaemon:
     """
     Background daemon that runs the automation loop
@@ -184,6 +247,7 @@ class AutomationDaemon:
         self.running = False
         self.cooldown: Optional[CooldownManager] = None  # Initialize after config loaded
         self.review_tracker = ReviewTracker()  # Track review completion to avoid infinite loops
+        self.workflow_history = WorkflowHistory()  # Track workflow events per issue
         
         # Register signal handlers
         signal.signal(signal.SIGTERM, self._handle_signal)
@@ -329,7 +393,8 @@ class AutomationDaemon:
                 "pr_number": item.pr_number,
                 "last_action": item.last_action,
                 "last_action_time": item.last_action_time.isoformat() if item.last_action_time else None,
-                "review_done": self.review_tracker.is_review_done(item.pr_number) if item.pr_number else False
+                "review_done": self.review_tracker.is_review_done(item.pr_number) if item.pr_number else False,
+                "workflow_history": self.workflow_history.get_history(item.issue_id)
             }
         
         DaemonStatus.write({
@@ -378,6 +443,7 @@ class AutomationDaemon:
                 if self.engine.client.mark_pr_ready_for_review(item.pr_number):
                     item.last_action = "Marked PR as ready for review"
                     item.last_action_time = datetime.now()
+                    self.workflow_history.add_event(item.issue_id, "Marked PR as ready for review", item.state.value, item.pr_number)
                     return f"Marked PR #{item.pr_number} as ready for review (review cycle complete)"
                 else:
                     logger.warning(f"[{item.issue_id}] Failed to mark PR as ready for review")
@@ -395,6 +461,7 @@ class AutomationDaemon:
                         item.last_action = f"Merged PR ({merge_reason})"
                         item.last_action_time = datetime.now()
                         self.review_tracker.clear_pr(item.pr_number)
+                        self.workflow_history.add_event(item.issue_id, f"Merged PR ({merge_reason})", item.state.value, item.pr_number)
                         return f"Merged PR #{item.pr_number} - {merge_reason}"
             
             # Step 3: PR not approved yet - request final Copilot review to get approval
@@ -406,6 +473,7 @@ class AutomationDaemon:
                     item.state = WorkflowState.REVIEWING
                     item.last_action = "Requested final Copilot review for approval"
                     item.last_action_time = datetime.now()
+                    self.workflow_history.add_event(item.issue_id, "Requested final Copilot review for approval", item.state.value, item.pr_number)
                     return f"Requested final review on PR #{item.pr_number} to get approval"
             
             # Otherwise, just wait - don't trigger more review cycles
@@ -421,6 +489,7 @@ class AutomationDaemon:
                     item.state = WorkflowState.REVIEW_REQUESTED
                     item.last_action = "Requested Copilot review"
                     item.last_action_time = datetime.now()
+                    self.workflow_history.add_event(item.issue_id, "Requested Copilot review", item.state.value, item.pr_number)
                     return f"Requested Copilot review for PR #{item.pr_number}"
         
         # State: Review requested → Reassign to Copilot (no cooldown)
@@ -430,6 +499,7 @@ class AutomationDaemon:
                 item.state = WorkflowState.REVIEWING
                 item.last_action = "Reassigned review to Copilot"
                 item.last_action_time = datetime.now()
+                self.workflow_history.add_event(item.issue_id, "Reassigned review to Copilot", item.state.value, item.pr_number)
                 return f"Reassigned review of PR #{item.pr_number} to Copilot"
         
         # State: Changes requested → Comment to apply (no cooldown)
@@ -444,6 +514,7 @@ class AutomationDaemon:
                 item.state = WorkflowState.APPLYING_CHANGES
                 item.last_action = "Commented @copilot apply changes"
                 item.last_action_time = datetime.now()
+                self.workflow_history.add_event(item.issue_id, "Commented @copilot apply changes", item.state.value, item.pr_number)
                 return f"Told Copilot to apply changes on PR #{item.pr_number}"
         
         # State: Approved → Merge (no cooldown)
@@ -453,6 +524,7 @@ class AutomationDaemon:
                 item.state = WorkflowState.MERGED
                 item.last_action = "Merged PR"
                 item.last_action_time = datetime.now()
+                self.workflow_history.add_event(item.issue_id, "Merged PR", item.state.value, item.pr_number)
                 return f"Merged PR #{item.pr_number}"
         
         # State: Queued → Assign to Copilot (WITH COOLDOWN)
@@ -484,6 +556,7 @@ class AutomationDaemon:
                     item.state = WorkflowState.ASSIGNED
                     item.last_action = "Assigned to Copilot"
                     item.last_action_time = datetime.now()
+                    self.workflow_history.add_event(item.issue_id, "Assigned to Copilot", item.state.value, item.pr_number)
                     return f"Assigned issue #{item.issue_number} ({item.issue_id}) to Copilot - cooldown started"
         
         return None

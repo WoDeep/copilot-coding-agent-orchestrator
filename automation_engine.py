@@ -42,6 +42,7 @@ class QueueItem:
     issue_id: str
     state: WorkflowState = WorkflowState.QUEUED
     issue_number: Optional[int] = None
+    issue_title: Optional[str] = None
     pr_number: Optional[int] = None
     last_action: Optional[str] = None
     last_action_time: Optional[datetime] = None
@@ -69,6 +70,7 @@ class AutomationEngine:
         self.client: Optional[GitHubClient] = None
         self.state = AutomationState()
         self._issue_numbers = self.config.get('issue_numbers', {})  # Pre-mapped issue numbers
+        self._issue_titles = self.config.get('issue_titles', {})  # Pre-mapped issue titles
         self._initialize_queue()
     
     def _load_config(self) -> dict:
@@ -92,6 +94,9 @@ class AutomationEngine:
             # Pre-populate issue number from config mapping
             if iid in self._issue_numbers:
                 item.issue_number = self._issue_numbers[iid]
+            # Pre-populate issue title from config mapping
+            if iid in self._issue_titles:
+                item.issue_title = self._issue_titles[iid]
             self.state.queue.append(item)
     
     def connect(self) -> bool:
@@ -196,6 +201,17 @@ class AutomationEngine:
         
         if not issue:
             return
+        
+        # Store the issue title and persist to config
+        if issue.title and not item.issue_title:
+            item.issue_title = issue.title
+            # Save to config mapping for persistence
+            if 'issue_titles' not in self.config:
+                self.config['issue_titles'] = {}
+            if item.issue_id not in self.config['issue_titles']:
+                self.config['issue_titles'][item.issue_id] = issue.title
+                self._issue_titles[item.issue_id] = issue.title
+                self._save_config()
         
         # Handle closed issues immediately - they're done!
         # This ensures we correctly skip items that were completed before daemon started
