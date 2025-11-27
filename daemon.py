@@ -68,22 +68,29 @@ class DaemonStatus:
 
 
 class CooldownManager:
-    """Manages cooldown between issue assignments"""
+    """Manages cooldown between issue completions (merge)
+    
+    The cooldown prevents rapid-fire issue assignments after a merge.
+    When an issue is merged/completed, the cooldown starts.
+    No new issues can be assigned until cooldown expires.
+    """
     
     def __init__(self, cooldown_minutes: int = 60):
         self.cooldown_minutes = cooldown_minutes
-        self.last_assignment_file = SCRIPT_DIR / "last_assignment.json"
+        self.last_completion_file = SCRIPT_DIR / "last_assignment.json"  # Keep filename for backward compat
     
     def can_assign(self) -> tuple[bool, Optional[int]]:
         """
         Check if we can assign a new issue.
         Returns (can_assign, minutes_remaining)
+        
+        Cooldown is active after a merge/completion, not after assignment.
         """
-        if not self.last_assignment_file.exists():
+        if not self.last_completion_file.exists():
             return True, None
         
         try:
-            with open(self.last_assignment_file) as f:
+            with open(self.last_completion_file) as f:
                 data = json.load(f)
             
             last_time = datetime.fromisoformat(data['timestamp'])
@@ -97,20 +104,21 @@ class CooldownManager:
         except:
             return True, None
     
-    def record_assignment(self, issue_id: str):
-        """Record that we just assigned an issue"""
-        with open(self.last_assignment_file, 'w') as f:
+    def record_completion(self, issue_id: str):
+        """Record that an issue was just completed/merged - starts cooldown"""
+        with open(self.last_completion_file, 'w') as f:
             json.dump({
                 'issue_id': issue_id,
-                'timestamp': datetime.now().isoformat()
+                'timestamp': datetime.now().isoformat(),
+                'event': 'completed'
             }, f)
     
     def get_last_assignment(self) -> Optional[dict]:
-        """Get info about last assignment"""
-        if not self.last_assignment_file.exists():
+        """Get info about last completion (kept for backward compat)"""
+        if not self.last_completion_file.exists():
             return None
         try:
-            with open(self.last_assignment_file) as f:
+            with open(self.last_completion_file) as f:
                 return json.load(f)
         except:
             return None
@@ -462,7 +470,10 @@ class AutomationDaemon:
                         item.last_action_time = datetime.now()
                         self.review_tracker.clear_pr(item.pr_number)
                         self.workflow_history.add_event(item.issue_id, f"Merged PR ({merge_reason})", item.state.value, item.pr_number)
-                        return f"Merged PR #{item.pr_number} - {merge_reason}"
+                        # START COOLDOWN after merge
+                        self.cooldown.record_completion(item.issue_id)
+                        logger.info(f"[{item.issue_id}] Cooldown started ({self.cooldown.cooldown_minutes}min)")
+                        return f"Merged PR #{item.pr_number} - {merge_reason} - cooldown started"
             
             # Step 3: PR not approved yet - request final Copilot review to get approval
             # Only if skip_final_review is disabled
@@ -517,7 +528,7 @@ class AutomationDaemon:
                 self.workflow_history.add_event(item.issue_id, "Commented @copilot apply changes", item.state.value, item.pr_number)
                 return f"Told Copilot to apply changes on PR #{item.pr_number}"
         
-        # State: Approved → Merge (no cooldown)
+        # State: Approved → Merge (no cooldown needed to merge, but START cooldown after)
         if item.state == WorkflowState.APPROVED and item.pr_number and auto_config.get('auto_merge', True):
             logger.info(f"[{item.issue_id}] PR approved - merging")
             if self.engine.client.merge_pr(item.pr_number):
@@ -525,7 +536,10 @@ class AutomationDaemon:
                 item.last_action = "Merged PR"
                 item.last_action_time = datetime.now()
                 self.workflow_history.add_event(item.issue_id, "Merged PR", item.state.value, item.pr_number)
-                return f"Merged PR #{item.pr_number}"
+                # START COOLDOWN after merge
+                self.cooldown.record_completion(item.issue_id)
+                logger.info(f"[{item.issue_id}] Cooldown started ({self.cooldown.cooldown_minutes}min)")
+                return f"Merged PR #{item.pr_number} - cooldown started"
         
         # State: Queued → Assign to Copilot (WITH COOLDOWN)
         if item.state == WorkflowState.QUEUED and auto_config.get('auto_assign_next', True):
@@ -539,7 +553,7 @@ class AutomationDaemon:
                           if i.state not in [WorkflowState.QUEUED, WorkflowState.MERGED, WorkflowState.COMPLETED]]
             
             if first_queued == item and not active_items and item.issue_number:
-                logger.info(f"[{item.issue_id}] Assigning to Copilot (cooldown starts)")
+                logger.info(f"[{item.issue_id}] Assigning to Copilot")
                 
                 # Get instructions and target branch from config
                 instructions = self.engine.config.get('agent_instructions', '')
@@ -550,14 +564,13 @@ class AutomationDaemon:
                     instructions=instructions,
                     target_branch=target_branch
                 ):
-                    # Record cooldown
-                    self.cooldown.record_assignment(item.issue_id)
+                    # Note: Cooldown is NOT started here - it starts after merge/completion
                     
                     item.state = WorkflowState.ASSIGNED
                     item.last_action = "Assigned to Copilot"
                     item.last_action_time = datetime.now()
                     self.workflow_history.add_event(item.issue_id, "Assigned to Copilot", item.state.value, item.pr_number)
-                    return f"Assigned issue #{item.issue_number} ({item.issue_id}) to Copilot - cooldown started"
+                    return f"Assigned issue #{item.issue_number} ({item.issue_id}) to Copilot"
         
         return None
 
