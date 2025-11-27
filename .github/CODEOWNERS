@@ -4,24 +4,25 @@
 # ============================================
 # PROTECTED BRANDING & DONATION ASSETS
 # These files CANNOT be modified without owner approval
+# Either @WoDeep OR @flerli can approve changes
 # ============================================
 
 # Swaibian logos and branding (now in assets/ folder)
-/assets/** @WoDeep
+/assets/** @WoDeep @flerli
 
 # Any image assets anywhere
-*.png @WoDeep
-*.jpg @WoDeep
-*.jpeg @WoDeep
-*.svg @WoDeep
-*.gif @WoDeep
-*.ico @WoDeep
+*.png @WoDeep @flerli
+*.jpg @WoDeep @flerli
+*.jpeg @WoDeep @flerli
+*.svg @WoDeep @flerli
+*.gif @WoDeep @flerli
+*.ico @WoDeep @flerli
 
 # README (contains donation links, branding)
-README.md @WoDeep
+README.md @WoDeep @flerli
 
 # License file
-LICENSE @WoDeep
+LICENSE @WoDeep @flerli
 
 # GitHub folder itself (prevent CODEOWNERS tampering)
-.github/** @WoDeep
+.github/** @WoDeep @flerli
