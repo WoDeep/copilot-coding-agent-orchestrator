@@ -1,23 +1,25 @@
-# GitHub Copilot Coding Agent Orchestrator
+# 🚀 Swaibian Agentic Pipeline
 
-A Streamlit web application to manage and automate GitHub Copilot development workflows. Configure any repository and let the orchestrator automatically assign issues to Copilot, manage PRs, and track progress.
+A modern web application for autonomous AI-powered development workflows. Configure any GitHub repository and let the pipeline automatically assign issues to Copilot, manage PR reviews, apply changes, and track progress.
+
+![Swaibian](swaibian_logo_white.svg)
 
 ## Features
 
 - 🔧 **Setup Wizard**: Easy first-time configuration with guided setup
 - 📋 **Queue Management**: View, reorder, add, and remove issues from the development queue
-- 🔄 **Status Monitoring**: Real-time status of all issues and PRs
-- 🤖 **Background Daemon**: Start/stop automated workflow processing with UI controls
-- ⏱️ **Cooldown System**: Rate-limit issue assignments (configurable)
-- 📝 **Agent Instructions**: Automatically include implementation guidelines when assigning
+- 🔄 **Real-time Monitoring**: Live status of all issues and PRs with workflow history
+- 🤖 **Autonomous Pipeline**: Start/stop automated workflow processing
+- ⏱️ **Smart Cooldowns**: Rate-limit issue assignments (configurable)
+- 📝 **Agent Instructions**: Automatically include implementation guidelines
 - 🔌 **MCP Integration**: Uses GitHub's official MCP Server for Copilot assignment
+- ✨ **Auto-Apply Changes**: Detects Copilot reviews and triggers change application
 
 ## Quick Start
 
 ### 1. Start the Application
 
 ```bash
-cd scripts/swaibian_automation
 ./start.sh
 ```
 
@@ -34,7 +36,7 @@ On first launch, you'll be guided through a 5-step setup wizard:
 2. **Repository**: Select which repository to automate
 3. **Issues**: Choose which issues to add to the queue
 4. **Configure**: Set automation preferences (cooldown, auto-merge, etc.)
-5. **Complete**: Review and start using the orchestrator
+5. **Complete**: Review and start using the pipeline
 
 ### 3. Token Requirements
 
@@ -46,7 +48,7 @@ Your GitHub Personal Access Token needs these permissions:
 
 ### The Automation Loop
 
-When the daemon is running, it polls at regular intervals and:
+When the pipeline is running, it polls at regular intervals and:
 
 1. **When Copilot requests your review** → Auto-reassign review to Copilot
 2. **When Copilot suggests changes** → Auto-comment "@copilot apply changes"

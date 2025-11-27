@@ -1,12 +1,13 @@
 """
-GitHub Copilot Coding Agent Orchestrator
-Streamlit web UI for managing automated development workflows
+Swaibian Agentic Pipeline
+Modern web UI for managing automated AI development workflows
 """
 
 import streamlit as st
 import pandas as pd
 import subprocess
 import os
+import base64
 from datetime import datetime
 from pathlib import Path
 
@@ -18,6 +19,8 @@ sys.path.insert(0, str(Path(__file__).parent))
 SCRIPT_DIR = Path(__file__).parent
 CONFIG_PATH = SCRIPT_DIR / "config.yaml"
 ENV_PATH = SCRIPT_DIR / ".env"
+LOGO_PATH = SCRIPT_DIR / "swaibian_logo_white.svg"
+AVATAR_PATH = SCRIPT_DIR / "swaibian_Avatar_white.png"
 
 # Check if setup is needed
 from setup_wizard import is_setup_complete, render_setup_wizard
@@ -33,11 +36,197 @@ from daemon import get_daemon_status, start_daemon, stop_daemon, DaemonStatus, C
 
 # Page config
 st.set_page_config(
-    page_title="Copilot Orchestrator",
-    page_icon="🤖",
+    page_title="Swaibian Agentic Pipeline",
+    page_icon="🚀",
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# Modern CSS styling
+st.markdown("""
+<style>
+    /* Import modern font */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    
+    /* Global styles */
+    .stApp {
+        font-family: 'Inter', sans-serif;
+    }
+    
+    /* Sidebar styling */
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    }
+    
+    [data-testid="stSidebar"] * {
+        color: #e8e8e8 !important;
+    }
+    
+    [data-testid="stSidebar"] .stButton button {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        border-radius: 8px;
+        color: white !important;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+    
+    [data-testid="stSidebar"] .stButton button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    
+    /* Main header styling */
+    .main-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 1.5rem 2rem;
+        border-radius: 16px;
+        margin-bottom: 1.5rem;
+        color: white;
+    }
+    
+    .main-header h1 {
+        color: white !important;
+        margin: 0;
+        font-weight: 600;
+    }
+    
+    .main-header p {
+        color: rgba(255,255,255,0.8) !important;
+        margin: 0.5rem 0 0 0;
+    }
+    
+    /* Metric cards */
+    [data-testid="stMetric"] {
+        background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
+        padding: 1rem;
+        border-radius: 12px;
+        border-left: 4px solid #667eea;
+    }
+    
+    [data-testid="stMetric"] label {
+        color: #64748b !important;
+        font-weight: 500;
+    }
+    
+    [data-testid="stMetric"] [data-testid="stMetricValue"] {
+        color: #1e293b !important;
+        font-weight: 700;
+    }
+    
+    /* Status badges */
+    .status-running {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-weight: 500;
+        display: inline-block;
+    }
+    
+    .status-stopped {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-weight: 500;
+        display: inline-block;
+    }
+    
+    .status-ready {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-weight: 500;
+        display: inline-block;
+    }
+    
+    /* Tab styling */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+    }
+    
+    .stTabs [data-baseweb="tab"] {
+        background: #f1f5f9;
+        border-radius: 8px 8px 0 0;
+        padding: 0.75rem 1.5rem;
+        font-weight: 500;
+    }
+    
+    .stTabs [aria-selected="true"] {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white !important;
+    }
+    
+    /* Card container */
+    .issue-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1rem;
+        margin-bottom: 0.75rem;
+        border: 1px solid #e2e8f0;
+        transition: all 0.2s ease;
+    }
+    
+    .issue-card:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        border-color: #667eea;
+    }
+    
+    /* Expander styling */
+    .streamlit-expanderHeader {
+        background: #f8fafc;
+        border-radius: 8px;
+    }
+    
+    /* Button styling */
+    .stButton > button {
+        border-radius: 8px;
+        font-weight: 500;
+        transition: all 0.2s ease;
+    }
+    
+    /* Primary action button */
+    .stButton > button[kind="primary"] {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+    }
+    
+    /* Divider */
+    hr {
+        border: none;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, #e2e8f0, transparent);
+        margin: 1.5rem 0;
+    }
+    
+    /* Logo container */
+    .logo-container {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 1rem 0;
+    }
+    
+    .logo-container img {
+        height: 40px;
+    }
+    
+    /* Hide default streamlit elements */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    
+    /* Workflow log styling */
+    .workflow-event {
+        padding: 0.5rem;
+        border-left: 3px solid #667eea;
+        margin-bottom: 0.5rem;
+        background: #f8fafc;
+        border-radius: 0 8px 8px 0;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 # Initialize session state
 if 'engine' not in st.session_state:
@@ -86,8 +275,13 @@ def sync_item_states_from_daemon():
 
 # ========== SIDEBAR ==========
 with st.sidebar:
-    st.title("🤖 Copilot Orchestrator")
-    st.caption(f"Repository: {REPO_FULL}")
+    # Logo and branding
+    if AVATAR_PATH.exists():
+        st.image(str(AVATAR_PATH), width=60)
+    
+    st.markdown("### Swaibian")
+    st.markdown("**Agentic Pipeline**")
+    st.caption(f"Managing: `{REPO_FULL}`")
     
     st.divider()
     
@@ -118,34 +312,35 @@ with st.sidebar:
     st.divider()
     
     # ========== DAEMON CONTROLS ==========
-    st.subheader("🤖 Background Daemon")
+    st.markdown("#### 🤖 Pipeline Agent")
     
     daemon_status = get_daemon_status()
     daemon_running = daemon_status.get('is_running', False)
     
     if daemon_running:
-        st.success(f"✅ Daemon Running (PID: {daemon_status.get('pid')})")
+        st.markdown('<span class="status-running">● Running</span>', unsafe_allow_html=True)
+        st.caption(f"PID: {daemon_status.get('pid')}")
         
         # Show cooldown status
         cooldown_info = daemon_status.get('cooldown', {})
         if cooldown_info:
             if cooldown_info.get('can_assign'):
-                st.info("⏱️ Ready to assign next issue")
+                st.markdown('<span class="status-ready">Ready to assign</span>', unsafe_allow_html=True)
             else:
                 mins = cooldown_info.get('minutes_remaining', 0)
-                st.warning(f"⏳ Cooldown: {mins} minutes remaining")
+                st.warning(f"⏳ Cooldown: {mins}m remaining")
                 last = cooldown_info.get('last_assignment', {})
                 if last:
-                    st.caption(f"Last assigned: {last.get('issue_id')}")
+                    st.caption(f"Last: {last.get('issue_id')}")
         
-        if st.button("⏹️ Stop Daemon", use_container_width=True, type="primary"):
+        if st.button("⏹️ Stop Pipeline", use_container_width=True, type="primary"):
             stop_daemon()
-            st.toast("Daemon stopped", icon="⏹️")
+            st.toast("Pipeline stopped", icon="⏹️")
             st.rerun()
     else:
-        st.warning("⏹️ Daemon Stopped")
+        st.markdown('<span class="status-stopped">● Stopped</span>', unsafe_allow_html=True)
         
-        if st.button("▶️ Start Daemon", use_container_width=True, type="primary", disabled=not st.session_state.connected):
+        if st.button("▶️ Start Pipeline", use_container_width=True, type="primary", disabled=not st.session_state.connected):
             # Start daemon in background process
             subprocess.Popen(
                 [sys.executable, str(SCRIPT_DIR / "daemon.py"), "start"],
@@ -154,7 +349,7 @@ with st.sidebar:
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL
             )
-            st.toast("Daemon starting...", icon="▶️")
+            st.toast("Pipeline starting...", icon="▶️")
             import time
             time.sleep(2)  # Give it time to start
             st.rerun()
@@ -162,9 +357,9 @@ with st.sidebar:
     st.divider()
     
     # Manual run once
-    st.subheader("⚡ Manual Control")
+    st.markdown("#### ⚡ Manual Control")
     
-    if st.button("▶️ Run Once (Manual)", use_container_width=True, disabled=not st.session_state.connected):
+    if st.button("▶️ Run Once", use_container_width=True, disabled=not st.session_state.connected):
         with st.spinner("Processing..."):
             actions = engine.run_once()
             for action in actions:
@@ -174,38 +369,38 @@ with st.sidebar:
     st.divider()
     
     # Settings
-    st.subheader("⚙️ Settings")
+    st.markdown("#### ⚙️ Settings")
     auto_merge = st.checkbox(
-        "Auto-merge approved PRs",
+        "Auto-merge PRs",
         value=engine.config.get('automation', {}).get('auto_merge', True)
     )
     auto_assign = st.checkbox(
-        "Auto-assign next issue",
+        "Auto-assign issues",
         value=engine.config.get('automation', {}).get('auto_assign_next', True)
     )
     cooldown_minutes = st.number_input(
-        "Cooldown (minutes)",
+        "Cooldown (min)",
         min_value=1,
         max_value=480,
         value=engine.config.get('automation', {}).get('cooldown_minutes', 60)
     )
     
-    if st.button("💾 Save Settings", use_container_width=True):
+    if st.button("💾 Save", use_container_width=True):
         engine.config.setdefault('automation', {})['auto_merge'] = auto_merge
         engine.config.setdefault('automation', {})['auto_assign_next'] = auto_assign
         engine.config.setdefault('automation', {})['cooldown_minutes'] = cooldown_minutes
         engine._save_config()
-        st.success("Settings saved!")
+        st.success("Saved!")
     
     st.divider()
     
     # Reset config option
     with st.expander("🔧 Advanced"):
-        st.caption("Reset configuration to run setup wizard again")
-        if st.button("🗑️ Reset Config", use_container_width=True):
+        st.caption("Reset to run setup wizard")
+        if st.button("🗑️ Reset", use_container_width=True):
             if CONFIG_PATH.exists():
                 CONFIG_PATH.unlink()
-            st.toast("Configuration reset. Reloading...", icon="🔄")
+            st.toast("Resetting...", icon="🔄")
             import time
             time.sleep(1)
             st.rerun()
@@ -213,32 +408,39 @@ with st.sidebar:
 
 # ========== MAIN CONTENT ==========
 
-# Header with status
-st.title("🤖 Copilot Coding Agent Orchestrator")
-st.caption(f"Managing: **{REPO_FULL}**")
+# Modern header with gradient
+st.markdown("""
+<div class="main-header">
+    <h1>🚀 Swaibian Agentic Pipeline</h1>
+    <p>Autonomous AI Development Workflow Management</p>
+</div>
+""", unsafe_allow_html=True)
 
-# Daemon status banner
+# Repository info
+st.markdown(f"**Repository:** [`{REPO_FULL}`](https://github.com/{REPO_FULL})")
+
+# Pipeline status banner
 daemon_status = get_daemon_status()
 if daemon_status.get('is_running'):
     last_cycle = daemon_status.get('last_cycle', 'N/A')
     actions = daemon_status.get('actions', [])
     
-    with st.expander("🤖 Daemon Status (Running)", expanded=False):
+    with st.expander("🚀 Pipeline Status (Active)", expanded=False):
         col1, col2 = st.columns(2)
         with col1:
-            st.write(f"**Last Cycle:** {last_cycle}")
-            st.write(f"**PID:** {daemon_status.get('pid')}")
+            st.markdown(f"**Last Cycle:** `{last_cycle}`")
+            st.markdown(f"**Process ID:** `{daemon_status.get('pid')}`")
         with col2:
             cooldown = daemon_status.get('cooldown', {})
             if cooldown.get('can_assign'):
-                st.success("Ready to assign")
+                st.markdown('<span class="status-ready">● Ready to assign</span>', unsafe_allow_html=True)
             else:
-                st.warning(f"Cooldown: {cooldown.get('minutes_remaining', 0)} min remaining")
+                st.warning(f"⏳ Cooldown: {cooldown.get('minutes_remaining', 0)}m")
         
         if actions:
-            st.write("**Recent Actions:**")
+            st.markdown("**Recent Actions:**")
             for action in actions:
-                st.write(f"- {action}")
+                st.markdown(f"• {action}")
 
 # Status overview - use daemon status if running, otherwise engine status
 if st.session_state.connected:
@@ -258,13 +460,13 @@ if st.session_state.connected:
     
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.metric("📋 Total Issues", total)
+        st.metric("📋 Total", total)
     with col2:
-        st.metric("🔄 In Progress", in_progress)
+        st.metric("🔄 Active", in_progress)
     with col3:
         st.metric("⏳ Queued", queued)
     with col4:
-        st.metric("✅ Completed", completed)
+        st.metric("✅ Done", completed)
     
     # Show last update time
     if daemon_status.get('is_running'):
@@ -494,12 +696,20 @@ if engine.state.errors:
         for error in engine.state.errors[-5:]:
             st.error(error)
 
-# Quick actions
-st.caption("Quick Actions")
+# Quick links
+st.markdown("#### 🔗 Quick Links")
 col1, col2, col3 = st.columns(3)
 with col1:
-    st.link_button("📋 GitHub Issues", f"https://github.com/{REPO_FULL}/issues")
+    st.link_button("📋 Issues", f"https://github.com/{REPO_FULL}/issues", use_container_width=True)
 with col2:
-    st.link_button("🔀 Pull Requests", f"https://github.com/{REPO_FULL}/pulls")
+    st.link_button("🔀 PRs", f"https://github.com/{REPO_FULL}/pulls", use_container_width=True)
 with col3:
-    st.link_button("📊 Repository", f"https://github.com/{REPO_FULL}")
+    st.link_button("📊 Repo", f"https://github.com/{REPO_FULL}", use_container_width=True)
+
+# Branding footer
+st.markdown("---")
+st.markdown("""
+<div style="text-align: center; color: #64748b; font-size: 0.85rem;">
+    <p>Powered by <strong>Swaibian</strong> • Autonomous AI Development</p>
+</div>
+""", unsafe_allow_html=True)
