@@ -370,48 +370,65 @@ class GitHubClient:
         copilot_has_reviewed = False
         copilot_is_working = False
         
-        # Check if Copilot coding agent is currently working
-        # PRIMARY: Check if there are recent commits from Copilot (within last 2 minutes)
-        # This is more reliable than comment detection since Copilot may post comments
-        # before finishing all commits
-        try:
-            commits = list(pr.get_commits())
-            if commits:
-                last_commit = commits[-1]
-                commit_date = last_commit.commit.committer.date
-                # Make it timezone-aware if not already
-                if commit_date.tzinfo is None:
-                    commit_date = commit_date.replace(tzinfo=timezone.utc)
-                now = datetime.now(timezone.utc)
-                time_since_last_commit = now - commit_date
-                
-                # Check if the last commit was from Copilot and was very recent
-                committer = last_commit.committer
-                if committer and "copilot" in committer.login.lower():
-                    # If last commit was within the last 2 minutes, Copilot might still be working
-                    if time_since_last_commit < timedelta(minutes=2):
-                        copilot_is_working = True
-                        print(f"[DEBUG] Last Copilot commit was {time_since_last_commit.seconds}s ago - still working")
-        except Exception as e:
-            print(f"[DEBUG] Error checking commit timestamps: {e}")
+        # SIMPLE & ROBUST DETECTION for Copilot working status
+        # 
+        # This detection is ONLY relevant during the APPLYING_CHANGES workflow state.
+        # It does NOT affect the initial PR creation or review phases.
+        #
+        # When we tell Copilot to apply changes ("@copilot apply changes"), it:
+        # 1. Makes multiple commits (could be 1, 2, 5, or more)
+        # 2. Posts intermediate comments like "Applied all suggested changes"
+        # 3. FINALLY posts: "Copilot finished work on behalf of @user"
+        #
+        # The ONLY reliable signal is: "Copilot finished work on behalf of"
+        # We wait for this, regardless of how many commits or other comments.
+        #
+        # IMPORTANT: copilot_is_working only becomes True if there's an "@copilot apply"
+        # request. For initial PR creation (no apply request), it stays False.
         
-        # SECONDARY: Also check comments for explicit "started work" / "finished work" markers
-        # (as a fallback, but commits are more reliable)
-        if not copilot_is_working:
-            try:
-                comments = list(pr.get_issue_comments())
-                # Look for most recent Copilot status comment
-                for comment in reversed(comments):
-                    body = comment.body or ""
-                    # Copilot coding agent uses these phrases in timeline events
-                    if "started work" in body.lower() and "copilot" in body.lower():
-                        copilot_is_working = True
-                        break
-                    elif ("finished work" in body.lower() or "stopped work" in body.lower()) and "copilot" in body.lower():
-                        copilot_is_working = False
-                        break
-            except:
-                pass
+        has_apply_changes_request = False
+        apply_changes_request_time = None
+        copilot_finished_work_time = None
+        
+        try:
+            comments = list(pr.get_issue_comments())
+            
+            for comment in comments:
+                body = comment.body or ""
+                body_lower = body.lower()
+                comment_time = comment.created_at
+                if comment_time.tzinfo is None:
+                    comment_time = comment_time.replace(tzinfo=timezone.utc)
+                
+                # Check for "@copilot apply changes" request (any variation)
+                # This triggers the waiting mechanism
+                if "@copilot" in body_lower and "apply" in body_lower:
+                    has_apply_changes_request = True
+                    apply_changes_request_time = comment_time
+                
+                # Check for THE definitive completion signal
+                # "Copilot finished work on behalf of" - this is the ONLY signal we trust
+                if "copilot finished work on behalf of" in body_lower:
+                    copilot_finished_work_time = comment_time
+            
+            # Decision logic:
+            # - Only activate waiting if there's been an "@copilot apply" request
+            # - Without such request, copilot_is_working stays False (no blocking)
+            if has_apply_changes_request and apply_changes_request_time:
+                if copilot_finished_work_time and copilot_finished_work_time > apply_changes_request_time:
+                    # Found "Copilot finished work on behalf of" AFTER the apply request
+                    copilot_is_working = False
+                    print(f"[DEBUG] Copilot finished work (found 'finished work on behalf of' after apply request)")
+                else:
+                    # Apply changes requested but no "finished work" signal yet - still working
+                    copilot_is_working = True
+                    now = datetime.now(timezone.utc)
+                    time_since_request = now - apply_changes_request_time
+                    print(f"[DEBUG] Copilot still working - apply requested {int(time_since_request.total_seconds())}s ago, waiting for 'finished work on behalf of'")
+            # else: No apply request, copilot_is_working stays False (default) - no blocking
+                        
+        except Exception as e:
+            print(f"[DEBUG] Error in Copilot working detection: {e}")
         
         # Get the latest commit SHA for the PR
         latest_commit_sha = pr.head.sha
