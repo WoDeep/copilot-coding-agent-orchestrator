@@ -96,7 +96,17 @@ st.markdown("""
     .main-header h1 {
         color: white !important;
         margin: 0;
-        font-weight: 600;
+        font-weight: 300;
+        font-family: 'Helvetica Neue', 'Arial', sans-serif;
+        letter-spacing: 0.02em;
+        display: flex;
+        align-items: baseline;
+    }
+    
+    .main-header h1 img {
+        align-self: flex-end;
+            padding-bottom: 4px;
+        margin-bottom: 4px;
     }
     
     .main-header p {
@@ -218,7 +228,7 @@ st.markdown("""
     }
     
     .logo-container img {
-        height: 40px;
+        height: 50px;
     }
     
     /* Hide default streamlit elements */
@@ -416,10 +426,19 @@ with st.sidebar:
 
 # ========== MAIN CONTENT ==========
 
-# Modern header with gradient
-st.markdown("""
+# Modern header with gradient and Swaibian logo
+import base64
+logo_path = Path(__file__).parent / "swaibian_white.png"
+if logo_path.exists():
+    with open(logo_path, "rb") as f:
+        logo_b64 = base64.b64encode(f.read()).decode()
+    header_logo = f'<img src="data:image/png;base64,{logo_b64}" style="height: 48px; vertical-align: bottom; margin-right: 8px;">'
+else:
+    header_logo = ""
+
+st.markdown(f"""
 <div class="main-header">
-    <h1>🚀 Swaibian Agentic Pipeline</h1>
+    <h1>{header_logo}<span>- Swaibian Agentic Pipeline</span></h1>
     <p>Autonomous AI Development Workflow Management</p>
 </div>
 """, unsafe_allow_html=True)
