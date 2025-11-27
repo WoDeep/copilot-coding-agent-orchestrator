@@ -395,13 +395,14 @@ class AutomationDaemon:
                         self.review_tracker.clear_pr(item.pr_number)
                         return f"Merged PR #{item.pr_number} after approval"
             
-            # Step 3: If changes were applied (not showing CHANGES_REQUESTED anymore), request final review
-            elif pr.state not in [PRState.CHANGES_REQUESTED] and item.state in [WorkflowState.APPLYING_CHANGES, WorkflowState.CHANGES_REQUESTED]:
-                # Changes were applied - request a final Copilot review to get approval
-                logger.info(f"[{item.issue_id}] Changes applied, requesting final Copilot review for approval")
+            # Step 3: PR not approved yet - request final Copilot review to get approval
+            # This handles all states where review cycle is done but approval is pending
+            elif pr.state not in [PRState.CHANGES_REQUESTED, PRState.APPROVED]:
+                # Request a final Copilot review to get approval
+                logger.info(f"[{item.issue_id}] Review cycle complete, requesting final Copilot review for approval")
                 if self.engine.client.request_review_from_copilot(item.pr_number):
                     item.state = WorkflowState.REVIEWING
-                    item.last_action = "Requested final Copilot review after changes applied"
+                    item.last_action = "Requested final Copilot review for approval"
                     item.last_action_time = datetime.now()
                     return f"Requested final review on PR #{item.pr_number} to get approval"
             
