@@ -9,14 +9,15 @@ __pycache__/
 venv/
 .venv/
 
-# Runtime files
+# Runtime/Pipeline-specific files (local state, do not sync)
 daemon.pid
 daemon.log
 daemon_status.json
 last_assignment.json
+review_tracker.json
+workflow_history.json
 
 # IDE
 .idea/
 .vscode/
 *.swp
-review_tracker.json

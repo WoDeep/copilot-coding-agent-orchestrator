@@ -91,6 +91,8 @@ class PRInfo:
     mergeable: bool
     checks_passed: bool
     is_draft: bool = False
+    copilot_has_reviewed: bool = False  # Track if Copilot reviewer has already reviewed
+    copilot_is_working: bool = False  # Track if Copilot coding agent is currently working
 
 
 class GitHubClient:
@@ -359,11 +361,57 @@ class GitHubClient:
             return False
     
     def _to_pr_info(self, pr: PullRequest) -> PRInfo:
+        from datetime import datetime, timezone, timedelta
+        
         # Determine review state
         reviews = list(pr.get_reviews())
         review_state = None
         has_pending_suggestions = False
         copilot_has_reviewed = False
+        copilot_is_working = False
+        
+        # Check if Copilot coding agent is currently working
+        # PRIMARY: Check if there are recent commits from Copilot (within last 2 minutes)
+        # This is more reliable than comment detection since Copilot may post comments
+        # before finishing all commits
+        try:
+            commits = list(pr.get_commits())
+            if commits:
+                last_commit = commits[-1]
+                commit_date = last_commit.commit.committer.date
+                # Make it timezone-aware if not already
+                if commit_date.tzinfo is None:
+                    commit_date = commit_date.replace(tzinfo=timezone.utc)
+                now = datetime.now(timezone.utc)
+                time_since_last_commit = now - commit_date
+                
+                # Check if the last commit was from Copilot and was very recent
+                committer = last_commit.committer
+                if committer and "copilot" in committer.login.lower():
+                    # If last commit was within the last 2 minutes, Copilot might still be working
+                    if time_since_last_commit < timedelta(minutes=2):
+                        copilot_is_working = True
+                        print(f"[DEBUG] Last Copilot commit was {time_since_last_commit.seconds}s ago - still working")
+        except Exception as e:
+            print(f"[DEBUG] Error checking commit timestamps: {e}")
+        
+        # SECONDARY: Also check comments for explicit "started work" / "finished work" markers
+        # (as a fallback, but commits are more reliable)
+        if not copilot_is_working:
+            try:
+                comments = list(pr.get_issue_comments())
+                # Look for most recent Copilot status comment
+                for comment in reversed(comments):
+                    body = comment.body or ""
+                    # Copilot coding agent uses these phrases in timeline events
+                    if "started work" in body.lower() and "copilot" in body.lower():
+                        copilot_is_working = True
+                        break
+                    elif ("finished work" in body.lower() or "stopped work" in body.lower()) and "copilot" in body.lower():
+                        copilot_is_working = False
+                        break
+            except:
+                pass
         
         # Get the latest commit SHA for the PR
         latest_commit_sha = pr.head.sha
@@ -373,9 +421,10 @@ class GitHubClient:
             review_state = latest_review.state
             
             # Check if Copilot has finished reviewing
-            # Look for the signature text in review body
+            # Look for signature text in review body - Copilot reviewer uses various phrases
             for review in reviews:
-                if review.body and "Copilot finished reviewing" in review.body:
+                if review.body and ("Copilot finished reviewing" in review.body or 
+                                   "Copilot reviewed" in review.body):
                     copilot_has_reviewed = True
                     # Check if there are review comments on the current commit
                     try:
@@ -413,11 +462,12 @@ class GitHubClient:
         elif copilot_has_reviewed and not has_pending_suggestions:
             # Copilot reviewed but all comments addressed (new commits made) = can proceed
             state = PRState.APPROVED if not pr.draft else PRState.REVIEW_REQUESTED
-        elif requested_reviewers:
-            # If review has been requested, this takes priority over draft
-            # Because Copilot requests review when it's ready for feedback
+        elif requested_reviewers and not copilot_has_reviewed:
+            # Review requested AND Copilot hasn't reviewed yet
+            # If Copilot already reviewed, we shouldn't re-request (avoid loop)
             state = PRState.REVIEW_REQUESTED
         elif pr.draft:
+            # Draft PR - either waiting for Copilot to finish or needs manual intervention
             state = PRState.DRAFT
         
         # Extract linked issue from body
@@ -453,7 +503,9 @@ class GitHubClient:
             linked_issue=linked_issue,
             mergeable=pr.mergeable or False,
             checks_passed=checks_passed,
-            is_draft=pr.draft
+            is_draft=pr.draft,
+            copilot_has_reviewed=copilot_has_reviewed,
+            copilot_is_working=copilot_is_working
         )
     
     # ========== UTILITY ==========
