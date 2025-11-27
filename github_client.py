@@ -91,6 +91,7 @@ class PRInfo:
     mergeable: bool
     checks_passed: bool
     is_draft: bool = False
+    copilot_has_reviewed: bool = False  # Track if Copilot reviewer has already reviewed
 
 
 class GitHubClient:
@@ -373,9 +374,10 @@ class GitHubClient:
             review_state = latest_review.state
             
             # Check if Copilot has finished reviewing
-            # Look for the signature text in review body
+            # Look for signature text in review body - Copilot reviewer uses various phrases
             for review in reviews:
-                if review.body and "Copilot finished reviewing" in review.body:
+                if review.body and ("Copilot finished reviewing" in review.body or 
+                                   "Copilot reviewed" in review.body):
                     copilot_has_reviewed = True
                     # Check if there are review comments on the current commit
                     try:
@@ -413,11 +415,12 @@ class GitHubClient:
         elif copilot_has_reviewed and not has_pending_suggestions:
             # Copilot reviewed but all comments addressed (new commits made) = can proceed
             state = PRState.APPROVED if not pr.draft else PRState.REVIEW_REQUESTED
-        elif requested_reviewers:
-            # If review has been requested, this takes priority over draft
-            # Because Copilot requests review when it's ready for feedback
+        elif requested_reviewers and not copilot_has_reviewed:
+            # Review requested AND Copilot hasn't reviewed yet
+            # If Copilot already reviewed, we shouldn't re-request (avoid loop)
             state = PRState.REVIEW_REQUESTED
         elif pr.draft:
+            # Draft PR - either waiting for Copilot to finish or needs manual intervention
             state = PRState.DRAFT
         
         # Extract linked issue from body
@@ -453,7 +456,8 @@ class GitHubClient:
             linked_issue=linked_issue,
             mergeable=pr.mergeable or False,
             checks_passed=checks_passed,
-            is_draft=pr.draft
+            is_draft=pr.draft,
+            copilot_has_reviewed=copilot_has_reviewed
         )
     
     # ========== UTILITY ==========
