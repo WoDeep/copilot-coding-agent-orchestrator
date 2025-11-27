@@ -92,6 +92,7 @@ class PRInfo:
     checks_passed: bool
     is_draft: bool = False
     copilot_has_reviewed: bool = False  # Track if Copilot reviewer has already reviewed
+    copilot_is_working: bool = False  # Track if Copilot coding agent is currently working
 
 
 class GitHubClient:
@@ -365,6 +366,25 @@ class GitHubClient:
         review_state = None
         has_pending_suggestions = False
         copilot_has_reviewed = False
+        copilot_is_working = False
+        
+        # Check if Copilot coding agent is currently working
+        # by looking at PR comments/timeline for "started work" vs "finished work"
+        try:
+            comments = list(pr.get_issue_comments())
+            # Look for most recent Copilot status comment
+            for comment in reversed(comments):
+                body = comment.body or ""
+                # Copilot coding agent uses these phrases in timeline events
+                if "started work" in body.lower() and "copilot" in body.lower():
+                    copilot_is_working = True
+                    break
+                elif ("finished work" in body.lower() or "stopped work" in body.lower() or 
+                      "applied all review feedback" in body.lower()) and "copilot" in body.lower():
+                    copilot_is_working = False
+                    break
+        except:
+            pass
         
         # Get the latest commit SHA for the PR
         latest_commit_sha = pr.head.sha
@@ -457,7 +477,8 @@ class GitHubClient:
             mergeable=pr.mergeable or False,
             checks_passed=checks_passed,
             is_draft=pr.draft,
-            copilot_has_reviewed=copilot_has_reviewed
+            copilot_has_reviewed=copilot_has_reviewed,
+            copilot_is_working=copilot_is_working
         )
     
     # ========== UTILITY ==========

@@ -21,6 +21,7 @@ CONFIG_PATH = SCRIPT_DIR / "config.yaml"
 ENV_PATH = SCRIPT_DIR / ".env"
 LOGO_PATH = SCRIPT_DIR / "swaibian_logo_white.svg"
 AVATAR_PATH = SCRIPT_DIR / "swaibian_Avatar_white.png"
+THANKYOU_PATH = SCRIPT_DIR / "thankyou.jpg"
 
 # Check if setup is needed
 from setup_wizard import is_setup_complete, render_setup_wizard
@@ -112,6 +113,34 @@ st.markdown("""
     .main-header p {
         color: rgba(255,255,255,0.8) !important;
         margin: 0.5rem 0 0 0;
+    }
+    
+    /* Tip button styling */
+    .tip-button {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        background: rgba(255,255,255,0.2);
+        border: 1px solid rgba(255,255,255,0.3);
+        border-radius: 8px;
+        padding: 0.4rem 0.8rem;
+        color: white;
+        font-size: 0.85rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+    
+    .tip-button:hover {
+        background: rgba(255,255,255,0.3);
+        transform: translateY(-1px);
+    }
+    
+    .main-header {
+        position: relative;
     }
     
     /* Metric cards */
@@ -439,8 +468,17 @@ st.markdown(f"""
 <div class="main-header">
     <h1>{header_logo}<span>- Swaibian Agentic Pipeline</span></h1>
     <p>Autonomous AI Development Workflow Management</p>
+    <span class="tip-button" onclick="document.getElementById('tip-modal').style.display='block'">💝 Support</span>
 </div>
 """, unsafe_allow_html=True)
+
+# Tip modal with QR code
+with st.popover("💝 Support Open Source", use_container_width=False):
+    st.markdown("### Thank you for your support! 🙏")
+    st.markdown("If you find this tool helpful, please consider leaving a small tip to help support free and open source solutions.")
+    if THANKYOU_PATH.exists():
+        st.image(str(THANKYOU_PATH), width=250)
+    st.markdown("*Every contribution helps keep open source alive!*")
 
 # Repository info
 st.markdown(f"**Repository:** [`{REPO_FULL}`](https://github.com/{REPO_FULL})")
