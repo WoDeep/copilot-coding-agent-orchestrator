@@ -1,0 +1,82 @@
+@startuml Copilot Coding Agent Orchestrator - Workflow State Machine
+
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam state {
+    BackgroundColor #E8F4FD
+    BorderColor #1F77B4
+    FontColor #333333
+    ArrowColor #1F77B4
+}
+
+title **Copilot Coding Agent Orchestrator**\nWorkflow State Machine
+
+state "QUEUED" as QUEUED #LightBlue : In queue, not started
+state "ASSIGNED" as ASSIGNED #LightGreen : Assigned to Copilot
+state "PR_OPEN" as PR_OPEN #LightYellow : PR created (draft)
+state "REVIEW_REQUESTED" as REVIEW_REQUESTED #Orange : Copilot asked for review
+state "REVIEWING" as REVIEWING #Gold : Copilot reviewer is reviewing
+state "CHANGES_REQUESTED" as CHANGES_REQUESTED #Salmon : Review has change requests
+state "APPLYING_CHANGES" as APPLYING_CHANGES #LightCoral : Copilot applying changes
+state "APPROVED" as APPROVED #LightGreen : PR approved
+state "MERGED" as MERGED #MediumSeaGreen : PR merged
+state "COMPLETED" as COMPLETED #DarkSeaGreen : Done
+
+[*] --> QUEUED
+
+QUEUED --> ASSIGNED : **auto_assign_next=true**\n[First in queue, no active items]\n//Action: Assign issue to Copilot//
+
+ASSIGNED --> PR_OPEN : **Copilot creates PR**\n[Detected via GitHub API]
+
+PR_OPEN --> REVIEW_REQUESTED : **PR has reviewers**\n[OR Copilot marks ready]
+
+REVIEW_REQUESTED --> REVIEWING : **Request Copilot review**\n//Action: Request review from Copilot//
+
+REVIEWING --> CHANGES_REQUESTED : **Review found issues**\n[copilot_is_working=false]\n[PR state=CHANGES_REQUESTED]
+
+REVIEWING --> APPROVED : **Review passed (no changes)**\n[copilot_is_working=false]\n[No CHANGES_REQUESTED]\n//Action: Mark PR ready if draft//
+
+CHANGES_REQUESTED --> APPLYING_CHANGES : **Tell Copilot to apply**\n//Action: Comment @copilot apply//
+
+APPLYING_CHANGES --> REVIEWING : **Changes applied**\n[skip_final_review=false]\n[copilot_is_working=false]\n//Action: Request follow-up review//
+
+APPLYING_CHANGES --> APPROVED : **Changes applied (skip review)**\n[skip_final_review=true]\n[copilot_is_working=false]\n//Action: Mark PR ready//
+
+APPROVED --> MERGED : **auto_merge=true**\n//Action: Merge the PR//
+
+MERGED --> COMPLETED : **Issue closed**\n[Detected via GitHub API]
+
+COMPLETED --> [*]
+
+note right of REVIEWING
+  **NEW: "No changes" path**
+  When Copilot reviewer finishes
+  with no suggestions, it fires
+  copilot_work_finished event
+  without submitting formal review.
+  
+  Pipeline detects this and
+  proceeds to APPROVED.
+end note
+
+note left of APPLYING_CHANGES
+  **skip_final_review setting**
+  - false: Request another review
+  - true: Go directly to merge
+end note
+
+note bottom of QUEUED
+  **Detection Mechanisms:**
+  
+  copilot_is_working:
+  • Timeline: copilot_work_started/finished
+  • Comments: "@copilot apply" → "finished work"
+  
+  PR State (GitHub API):
+  • MERGED: pr.merged = true
+  • APPROVED: review_state = "APPROVED"
+  • CHANGES_REQUESTED: has pending comments
+  • REVIEW_REQUESTED: has requested_reviewers
+end note
+
+@enduml

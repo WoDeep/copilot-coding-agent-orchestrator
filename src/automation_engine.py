@@ -328,6 +328,40 @@ class AutomationEngine:
                 item.last_action_time = datetime.now()
                 return f"Reassigned review of PR #{item.pr_number} to Copilot"
         
+        # State: Reviewing - check if Copilot finished reviewing
+        # Action: If review completed with no changes requested, proceed to approved
+        if item.state == WorkflowState.REVIEWING and item.pr_number:
+            pr = self.client.get_pr_by_number(item.pr_number)
+            if pr:
+                # Wait for Copilot to finish reviewing
+                if pr.copilot_is_working:
+                    logger.debug(f"[{item.issue_id}] Copilot still reviewing, waiting...")
+                    return None  # Don't take any action while Copilot is reviewing
+                
+                # Copilot has finished - check what the review result is
+                if pr.state == PRState.CHANGES_REQUESTED:
+                    # Review completed with change requests
+                    item.state = WorkflowState.CHANGES_REQUESTED
+                    item.last_action = "Review completed with changes requested"
+                    item.last_action_time = datetime.now()
+                    return f"PR #{item.pr_number} review completed - changes requested"
+                elif pr.state == PRState.APPROVED:
+                    # Review completed and approved
+                    item.state = WorkflowState.APPROVED
+                    item.last_action = "Review completed and approved"
+                    item.last_action_time = datetime.now()
+                    return f"PR #{item.pr_number} review completed - approved"
+                else:
+                    # Review completed with no changes requested (Copilot found nothing to change)
+                    # This happens when Copilot reviews quickly and doesn't submit a formal review
+                    logger.info(f"[{item.issue_id}] Review completed with no changes - proceeding to approved")
+                    if pr.is_draft:
+                        self.client.mark_pr_ready_for_review(item.pr_number)
+                    item.state = WorkflowState.APPROVED
+                    item.last_action = "Review completed, no changes needed"
+                    item.last_action_time = datetime.now()
+                    return f"PR #{item.pr_number} review completed - no changes needed, ready for merge"
+        
         # State: Changes requested by Copilot review
         # Action: Comment to apply changes
         if item.state == WorkflowState.CHANGES_REQUESTED and item.pr_number:

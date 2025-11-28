@@ -370,8 +370,45 @@ class GitHubClient:
         copilot_has_reviewed = False
         copilot_is_working = False
         
-        # SIMPLE & ROBUST DETECTION for Copilot working status
-        # 
+        # DETECTION 1: Check timeline events for Copilot reviewer status
+        # The Copilot reviewer uses copilot_work_started/copilot_work_finished events
+        try:
+            import requests
+            timeline_url = f"https://api.github.com/repos/{self.owner}/{self.repo_name}/issues/{pr.number}/timeline"
+            headers = {
+                "Authorization": f"token {self.token}",
+                "Accept": "application/vnd.github+json"
+            }
+            
+            response = requests.get(timeline_url, headers=headers)
+            if response.status_code == 200:
+                events = response.json()
+                
+                # Find the latest copilot_work_started and copilot_work_finished events
+                latest_work_started = None
+                latest_work_finished = None
+                
+                for event in events:
+                    event_type = event.get('event', '')
+                    event_time = event.get('created_at')
+                    
+                    if event_type == 'copilot_work_started' and event_time:
+                        latest_work_started = event_time
+                    elif event_type == 'copilot_work_finished' and event_time:
+                        latest_work_finished = event_time
+                
+                # If there's a work_started but no work_finished after it, Copilot is still working
+                if latest_work_started:
+                    if not latest_work_finished or latest_work_started > latest_work_finished:
+                        copilot_is_working = True
+                        print(f"[DEBUG] Copilot reviewer is working (work_started: {latest_work_started}, work_finished: {latest_work_finished})")
+                    else:
+                        copilot_is_working = False
+                        print(f"[DEBUG] Copilot reviewer finished (work_finished: {latest_work_finished} > work_started: {latest_work_started})")
+        except Exception as e:
+            print(f"[DEBUG] Could not check timeline events: {e}")
+        
+        # DETECTION 2: Check for "@copilot apply" comment pattern (for APPLYING_CHANGES workflow)
         # This detection is ONLY relevant during the APPLYING_CHANGES workflow state.
         # It does NOT affect the initial PR creation or review phases.
         #
