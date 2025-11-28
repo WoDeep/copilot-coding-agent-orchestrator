@@ -21,3 +21,5 @@ workflow_history.json
 .idea/
 .vscode/
 *.swp
+
+*.log

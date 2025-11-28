@@ -369,6 +369,7 @@ class GitHubClient:
         has_pending_suggestions = False
         copilot_has_reviewed = False
         copilot_is_working = False
+        copilot_work_just_finished = False  # True if Copilot finished within 120 seconds - grace period for comment indexing
         
         # DETECTION 1: Check timeline events for Copilot reviewer status
         # The Copilot reviewer uses copilot_work_started/copilot_work_finished events
@@ -411,6 +412,17 @@ class GitHubClient:
                         # consider the review complete (even without formal review submission)
                         if latest_review_requested and latest_work_finished > latest_review_requested:
                             copilot_has_reviewed = True
+                            # Store the finish time for grace period check
+                            copilot_review_finished_at = latest_work_finished
+                            # Check if Copilot just finished (within 120 seconds) - grace period for comment indexing
+                            from datetime import datetime, timezone
+                            now = datetime.now(timezone.utc)
+                            seconds_since_finish = (now - copilot_review_finished_at).total_seconds()
+                            if seconds_since_finish < 120:
+                                copilot_work_just_finished = True
+                                print(f"[DEBUG] Copilot reviewer JUST finished {seconds_since_finish:.0f}s ago - grace period active")
+                            else:
+                                print(f"[DEBUG] Copilot reviewer finished {seconds_since_finish:.0f}s ago - grace period passed")
                             print(f"[DEBUG] Copilot reviewer finished review (work_finished: {latest_work_finished} > review_requested: {latest_review_requested})")
                         else:
                             print(f"[DEBUG] Copilot reviewer finished (work_finished: {latest_work_finished} > work_started: {latest_work_started})")
@@ -489,21 +501,26 @@ class GitHubClient:
                 if review.body and ("Copilot finished reviewing" in review.body or 
                                    "Copilot reviewed" in review.body):
                     copilot_has_reviewed = True
-                    # Check if there are review comments on the current commit
-                    try:
-                        review_comments = list(pr.get_review_comments())
-                        for comment in review_comments:
-                            # Check if this comment was made on an older commit
-                            comment_commit = comment.commit_id if hasattr(comment, 'commit_id') else None
-                            if comment_commit and comment_commit != latest_commit_sha:
-                                # There's a newer commit - comment was likely addressed
-                                continue
-                            # This comment is on the latest commit - needs attention
-                            has_pending_suggestions = True
-                            break
-                    except:
-                        pass
                     break
+        
+        # IMPORTANT: Check for pending suggestions OUTSIDE the reviews block
+        # This ensures we check review comments whether copilot_has_reviewed was set
+        # by timeline events OR by review body signature
+        if copilot_has_reviewed:
+            try:
+                review_comments = list(pr.get_review_comments())
+                for comment in review_comments:
+                    # Check if this comment was made on an older commit
+                    comment_commit = comment.commit_id if hasattr(comment, 'commit_id') else None
+                    if comment_commit and comment_commit != latest_commit_sha:
+                        # There's a newer commit - comment was likely addressed
+                        continue
+                    # This comment is on the latest commit - needs attention
+                    has_pending_suggestions = True
+                    print(f"[DEBUG] Found pending suggestion on latest commit: {comment.body[:50]}...")
+                    break
+            except Exception as e:
+                print(f"[DEBUG] Error checking review comments: {e}")
         
         # Get requested reviewers BEFORE determining state
         requested_reviewers = [r.login for r in pr.get_review_requests()[0]]
@@ -523,9 +540,17 @@ class GitHubClient:
             # Copilot has reviewed and there are comments on current commit = needs changes applied
             state = PRState.CHANGES_REQUESTED
         elif copilot_has_reviewed and not has_pending_suggestions:
-            # Copilot reviewed but all comments addressed (new commits made) OR no changes needed
-            # Mark as APPROVED - automation will handle marking PR ready for merge
-            state = PRState.APPROVED
+            # Copilot reviewed but no comments found (yet)
+            # GRACE PERIOD: If Copilot just finished (within 120s), stay in REVIEW_REQUESTED
+            # to give GitHub time to index the review comments
+            if copilot_work_just_finished:
+                state = PRState.REVIEW_REQUESTED
+                print(f"[DEBUG] Grace period active - staying in REVIEW_REQUESTED to wait for comments to be indexed")
+            else:
+                # Grace period passed, and still no suggestions = truly approved
+                # Mark as APPROVED - automation will handle marking PR ready for merge
+                state = PRState.APPROVED
+                print(f"[DEBUG] Grace period passed - Copilot reviewed with no changes needed -> APPROVED")
         elif requested_reviewers and not copilot_has_reviewed:
             # Review requested AND Copilot hasn't reviewed yet
             # If Copilot already reviewed, we shouldn't re-request (avoid loop)
