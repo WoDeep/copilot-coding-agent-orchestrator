@@ -454,6 +454,9 @@ with st.sidebar:
         if st.button("🗑️ Reset", use_container_width=True):
             if CONFIG_PATH.exists():
                 CONFIG_PATH.unlink()
+            # Clear engine from session state to force reload
+            if 'engine' in st.session_state:
+                del st.session_state['engine']
             st.toast("Resetting...", icon="🔄")
             import time
             time.sleep(1)

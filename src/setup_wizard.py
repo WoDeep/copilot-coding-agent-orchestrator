@@ -390,6 +390,10 @@ def render_setup_wizard(config_path: Path, env_path: Path) -> bool:
                         if key.startswith('setup_'):
                             del st.session_state[key]
                     
+                    # Clear engine to force reload with new config
+                    if 'engine' in st.session_state:
+                        del st.session_state['engine']
+                    
                     st.info("Restarting application...")
                     import time
                     time.sleep(2)
