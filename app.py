@@ -15,14 +15,13 @@ from pathlib import Path
 import sys
 sys.path.insert(0, str(Path(__file__).parent))
 
-# Paths - PROJECT_ROOT is the main project directory (parent of src/)
-PROJECT_ROOT = Path(__file__).parent.parent
-CONFIG_PATH = PROJECT_ROOT / "config.yaml"
-ENV_PATH = PROJECT_ROOT / ".env"
-ASSETS_DIR = PROJECT_ROOT / "assets"
-LOGO_PATH = ASSETS_DIR / "swaibian_white.png"
-AVATAR_PATH = ASSETS_DIR / "swaibian_Avatar_white.png"
-THANKYOU_PATH = ASSETS_DIR / "thankyou.jpg"
+# Paths
+SCRIPT_DIR = Path(__file__).parent
+CONFIG_PATH = SCRIPT_DIR / "config.yaml"
+ENV_PATH = SCRIPT_DIR / ".env"
+LOGO_PATH = SCRIPT_DIR / "swaibian_logo_white.svg"
+AVATAR_PATH = SCRIPT_DIR / "swaibian_Avatar_white.png"
+THANKYOU_PATH = SCRIPT_DIR / "thankyou.jpg"
 
 # Check if setup is needed
 from setup_wizard import is_setup_complete, render_setup_wizard
@@ -193,6 +192,8 @@ st.markdown("""
     /* Tab styling */
     .stTabs [data-baseweb="tab-list"] {
         gap: 8px;
+        color: #ff0000 !important;
+        background: #656565 !important;
     }
     
     .stTabs [data-baseweb="tab"] {
@@ -200,6 +201,7 @@ st.markdown("""
         border-radius: 8px 8px 0 0;
         padding: 0.75rem 1.5rem;
         font-weight: 500;
+        color: #000000 !important;
     }
     
     .stTabs [aria-selected="true"] {
@@ -325,7 +327,7 @@ def sync_item_states_from_daemon():
 with st.sidebar:
     # Logo and branding with link
     if AVATAR_PATH.exists():
-        st.markdown(f'<a href="www.swaibian.com" target="_blank"><img src="data:image/png;base64,{base64.b64encode(open(AVATAR_PATH, "rb").read()).decode()}" width="60"></a>', unsafe_allow_html=True)
+        st.markdown(f'<a href="https://www.swaibian.com" target="_blank"><img src="data:image/png;base64,{base64.b64encode(open(AVATAR_PATH, "rb").read()).decode()}" width="60"></a>', unsafe_allow_html=True)
     
     st.markdown("### Swaibian Agentic Pipeline")
     st.caption(f"Managing: `{REPO_FULL}`")
@@ -389,10 +391,9 @@ with st.sidebar:
         
         if st.button("▶️ Start Pipeline", use_container_width=True, type="primary", disabled=not st.session_state.connected):
             # Start daemon in background process
-            SRC_DIR = Path(__file__).parent
             subprocess.Popen(
-                [sys.executable, str(SRC_DIR / "daemon.py"), "start"],
-                cwd=str(PROJECT_ROOT),
+                [sys.executable, str(SCRIPT_DIR / "daemon.py"), "start"],
+                cwd=str(SCRIPT_DIR),
                 start_new_session=True,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL
@@ -426,11 +427,6 @@ with st.sidebar:
         "Auto-assign issues",
         value=engine.config.get('automation', {}).get('auto_assign_next', True)
     )
-    skip_final_review = st.checkbox(
-        "Skip final review",
-        value=engine.config.get('automation', {}).get('skip_final_review', False),
-        help="Skip the approval step and merge directly after Copilot applies changes"
-    )
     cooldown_minutes = st.number_input(
         "Cooldown (min)",
         min_value=1,
@@ -441,7 +437,6 @@ with st.sidebar:
     if st.button("💾 Save", use_container_width=True):
         engine.config.setdefault('automation', {})['auto_merge'] = auto_merge
         engine.config.setdefault('automation', {})['auto_assign_next'] = auto_assign
-        engine.config.setdefault('automation', {})['skip_final_review'] = skip_final_review
         engine.config.setdefault('automation', {})['cooldown_minutes'] = cooldown_minutes
         engine._save_config()
         st.success("Saved!")
@@ -468,7 +463,7 @@ logo_path = LOGO_PATH
 if logo_path.exists():
     with open(logo_path, "rb") as f:
         logo_b64 = base64.b64encode(f.read()).decode()
-    header_logo = f'<a href="www.swaibian.com" target="_blank" style="text-decoration: none;"><img src="data:image/png;base64,{logo_b64}" style="height: 48px; vertical-align: bottom; margin-right: 8px;"></a>'
+    header_logo = f'<a href="https://www.swaibian.com" target="_blank" style="text-decoration: none;"><img src="data:image/png;base64,{logo_b64}" style="height: 48px; vertical-align: bottom; margin-right: 8px;"></a>'
 else:
     header_logo = ""
 
