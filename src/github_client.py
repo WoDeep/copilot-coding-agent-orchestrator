@@ -413,9 +413,14 @@ class GitHubClient:
                         if latest_review_requested and latest_work_finished > latest_review_requested:
                             copilot_has_reviewed = True
                             # Store the finish time for grace period check
-                            copilot_review_finished_at = latest_work_finished
-                            # Check if Copilot just finished (within 120 seconds) - grace period for comment indexing
+                            # Parse ISO string to datetime
                             from datetime import datetime, timezone
+                            if isinstance(latest_work_finished, str):
+                                copilot_review_finished_at = datetime.fromisoformat(latest_work_finished.replace('Z', '+00:00'))
+                            else:
+                                copilot_review_finished_at = latest_work_finished
+                                
+                            # Check if Copilot just finished (within 120 seconds) - grace period for comment indexing
                             now = datetime.now(timezone.utc)
                             seconds_since_finish = (now - copilot_review_finished_at).total_seconds()
                             if seconds_since_finish < 120:
@@ -466,7 +471,10 @@ class GitHubClient:
                 
                 # Check for THE definitive completion signal
                 # "Copilot finished work on behalf of" - this is the ONLY signal we trust
-                if "copilot finished work on behalf of" in body_lower:
+                # UPDATE: Added more variations and a timeout safeguard
+                if "copilot finished work on behalf of" in body_lower or \
+                   "applied all suggested changes" in body_lower or \
+                   "i have applied the changes" in body_lower:
                     copilot_finished_work_time = comment_time
             
             # Decision logic:
@@ -481,8 +489,16 @@ class GitHubClient:
                     # Apply changes requested but no "finished work" signal yet - still working
                     copilot_is_working = True
                     now = datetime.now(timezone.utc)
-                    time_since_request = now - apply_changes_request_time
-                    print(f"[DEBUG] Copilot still working - apply requested {int(time_since_request.total_seconds())}s ago, waiting for 'finished work on behalf of'")
+                    time_since_request = (now - apply_changes_request_time).total_seconds()
+                    
+                    # TIMEOUT SAFEGUARD:
+                    # If it's been > 10 minutes (600s) and we haven't seen the finish message,
+                    # assume it's done to prevent deadlock.
+                    if time_since_request > 600:
+                        print(f"[DEBUG] Copilot working timeout ({int(time_since_request)}s) - assuming finished to prevent deadlock")
+                        copilot_is_working = False
+                    else:
+                        print(f"[DEBUG] Copilot still working - apply requested {int(time_since_request)}s ago, waiting for 'finished work on behalf of'")
             # else: No apply request, copilot_is_working stays False (default) - no blocking
                         
         except Exception as e:
