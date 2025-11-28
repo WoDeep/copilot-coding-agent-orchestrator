@@ -459,6 +459,30 @@ with st.sidebar:
             time.sleep(1)
             st.rerun()
 
+    # FOSS Info
+    st.divider()
+    with st.expander("❤️ FOSS"):
+        st.markdown("### Open Source Credits")
+        st.markdown("This project is free and open source software (FOSS), built on the shoulders of giants.")
+        
+        foss_libs = [
+            {"name": "Streamlit", "ver": ">=1.28.0", "lic": "Apache 2.0", "url": "https://streamlit.io"},
+            {"name": "PyGithub", "ver": ">=2.1.1", "lic": "LGPL v3", "url": "https://github.com/PyGithub/PyGithub"},
+            {"name": "PyYAML", "ver": ">=6.0", "lic": "MIT", "url": "https://pyyaml.org"},
+            {"name": "Pandas", "ver": ">=2.0.0", "lic": "BSD 3-Clause", "url": "https://pandas.pydata.org"},
+            {"name": "HTTPX", "ver": ">=0.25.0", "lic": "BSD 3-Clause", "url": "https://www.python-httpx.org"},
+            {"name": "python-dotenv", "ver": ">=1.0.0", "lic": "BSD 3-Clause", "url": "https://github.com/theskumar/python-dotenv"},
+        ]
+        
+        for lib in foss_libs:
+            st.markdown(f"• **[{lib['name']}]({lib['url']})**")
+            st.caption(f"License: {lib['lic']}")
+            
+        st.markdown("---")
+        st.markdown("**[Copilot Coding Agent Orchestrator](https://github.com/WoDeep/copilot-coding-agent-orchestrator)**")
+        st.caption("Copyright © 2025 WoDeep / Swaibian")
+        st.caption("Licensed under MIT License")
+
 
 # ========== MAIN CONTENT ==========
 
@@ -476,12 +500,12 @@ st.markdown(f"""
 <div class="main-header">
     <h1>{header_logo}<span>- Swaibian Agentic Pipeline</span></h1>
     <p>Autonomous AI Development Workflow Management</p>
-    <span class="tip-button" onclick="document.getElementById('tip-modal').style.display='block'">💝 Support</span>
+    <span class="tip-button" onclick="document.getElementById('tip-modal').style.display='block'">enjoy!!</span>
 </div>
 """, unsafe_allow_html=True)
 
 # Tip modal with QR code
-with st.popover("💝 Support Open Source", use_container_width=False):
+with st.popover("Support if you like it!", use_container_width=False):
     st.markdown("### Thank you for your support! 🙏")
     st.markdown("If you find this tool helpful, please consider leaving a small tip to help support free and open source solutions.")
     if THANKYOU_PATH.exists():
