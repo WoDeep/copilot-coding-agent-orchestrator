@@ -411,14 +411,26 @@ class AutomationEngine:
                             return f"Requested follow-up review on PR #{item.pr_number} after changes applied"
         
         # State: Approved and auto_merge enabled
-        # Action: Merge the PR
+        # Action: Mark ready (if draft) and merge the PR
         if item.state == WorkflowState.APPROVED and item.pr_number and auto_config.get('auto_merge', True):
-            logger.info(f"[{item.issue_id}] PR approved - merging")
-            if self.client.merge_pr(item.pr_number):
-                item.state = WorkflowState.MERGED
-                item.last_action = "Merged PR"
-                item.last_action_time = datetime.now()
-                return f"Merged PR #{item.pr_number}"
+            pr = self.client.get_pr_by_number(item.pr_number)
+            if pr:
+                # First, mark PR as ready if it's still a draft
+                if pr.is_draft:
+                    logger.info(f"[{item.issue_id}] PR is draft - marking ready for review first")
+                    self.client.mark_pr_ready_for_review(item.pr_number)
+                    # Return here - next cycle will merge after PR is ready
+                    item.last_action = "Marked PR ready for review"
+                    item.last_action_time = datetime.now()
+                    return f"Marked PR #{item.pr_number} as ready for review"
+                
+                # PR is ready - merge it
+                logger.info(f"[{item.issue_id}] PR approved - merging")
+                if self.client.merge_pr(item.pr_number):
+                    item.state = WorkflowState.MERGED
+                    item.last_action = "Merged PR"
+                    item.last_action_time = datetime.now()
+                    return f"Merged PR #{item.pr_number}"
         
         # State: Previous item merged, this item is queued, auto_assign enabled
         # Action: Assign to Copilot

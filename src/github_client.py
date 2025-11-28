@@ -384,9 +384,10 @@ class GitHubClient:
             if response.status_code == 200:
                 events = response.json()
                 
-                # Find the latest copilot_work_started and copilot_work_finished events
+                # Find the latest copilot_work_started, copilot_work_finished, and review_requested events
                 latest_work_started = None
                 latest_work_finished = None
+                latest_review_requested = None
                 
                 for event in events:
                     event_type = event.get('event', '')
@@ -396,6 +397,8 @@ class GitHubClient:
                         latest_work_started = event_time
                     elif event_type == 'copilot_work_finished' and event_time:
                         latest_work_finished = event_time
+                    elif event_type == 'review_requested' and event_time:
+                        latest_review_requested = event_time
                 
                 # If there's a work_started but no work_finished after it, Copilot is still working
                 if latest_work_started:
@@ -404,7 +407,13 @@ class GitHubClient:
                         print(f"[DEBUG] Copilot reviewer is working (work_started: {latest_work_started}, work_finished: {latest_work_finished})")
                     else:
                         copilot_is_working = False
-                        print(f"[DEBUG] Copilot reviewer finished (work_finished: {latest_work_finished} > work_started: {latest_work_started})")
+                        # IMPORTANT: If Copilot finished AFTER a review was requested,
+                        # consider the review complete (even without formal review submission)
+                        if latest_review_requested and latest_work_finished > latest_review_requested:
+                            copilot_has_reviewed = True
+                            print(f"[DEBUG] Copilot reviewer finished review (work_finished: {latest_work_finished} > review_requested: {latest_review_requested})")
+                        else:
+                            print(f"[DEBUG] Copilot reviewer finished (work_finished: {latest_work_finished} > work_started: {latest_work_started})")
         except Exception as e:
             print(f"[DEBUG] Could not check timeline events: {e}")
         
@@ -514,8 +523,9 @@ class GitHubClient:
             # Copilot has reviewed and there are comments on current commit = needs changes applied
             state = PRState.CHANGES_REQUESTED
         elif copilot_has_reviewed and not has_pending_suggestions:
-            # Copilot reviewed but all comments addressed (new commits made) = can proceed
-            state = PRState.APPROVED if not pr.draft else PRState.REVIEW_REQUESTED
+            # Copilot reviewed but all comments addressed (new commits made) OR no changes needed
+            # Mark as APPROVED - automation will handle marking PR ready for merge
+            state = PRState.APPROVED
         elif requested_reviewers and not copilot_has_reviewed:
             # Review requested AND Copilot hasn't reviewed yet
             # If Copilot already reviewed, we shouldn't re-request (avoid loop)

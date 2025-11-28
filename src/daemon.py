@@ -18,6 +18,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from automation_engine import AutomationEngine, WorkflowState
 from github_client import PRState
+from state_logger import StateLogger, slog  # State machine logger
 
 # Paths - PROJECT_ROOT is the main project directory (parent of src/)
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -375,19 +376,49 @@ class AutomationDaemon:
         """Process one automation cycle with cooldown awareness"""
         self.engine.refresh_status()
         
+        # Log cycle start
+        slog.log_cycle_start()
+        
+        # Log queue status
+        queue = self.engine.state.queue
+        total = len(queue)
+        in_progress = len([i for i in queue if i.state in [WorkflowState.ASSIGNED, WorkflowState.PR_OPEN, WorkflowState.REVIEW_REQUESTED, WorkflowState.REVIEWING, WorkflowState.CHANGES_REQUESTED, WorkflowState.APPLYING_CHANGES, WorkflowState.APPROVED]])
+        queued = len([i for i in queue if i.state == WorkflowState.QUEUED])
+        completed = len([i for i in queue if i.state in [WorkflowState.MERGED, WorkflowState.COMPLETED]])
+        slog.log_queue_status(total, in_progress, queued, completed)
+        
         actions_taken = []
         
         # Check cooldown status
         can_assign, minutes_remaining = self.cooldown.can_assign()
+        slog.log_cooldown_check(can_assign, minutes_remaining)
         
         for item in self.engine.state.queue:
+            # Log item check
+            slog.log_item_check(item.issue_id, item.state, item.pr_number)
+            
+            old_state = item.state
             action = self._process_item_with_cooldown(item, can_assign)
+            
+            # Log state transition if state changed
+            if item.state != old_state:
+                slog.log_state_transition(
+                    item.issue_id, 
+                    old_state, 
+                    item.state, 
+                    action or "Unknown action",
+                    item.pr_number
+                )
+            
             if action:
                 actions_taken.append(action)
                 # If we just assigned something, update cooldown state
                 if "Assigned" in action:
                     can_assign = False
                     _, minutes_remaining = self.cooldown.can_assign()
+        
+        # Log cycle end
+        slog.log_cycle_end(actions_taken)
         
         # Update status file
         status = self.engine.get_current_status()
@@ -433,6 +464,7 @@ class AutomationDaemon:
     def _process_item_with_cooldown(self, item, can_assign: bool) -> Optional[str]:
         """Process a single item, respecting cooldown for assignments"""
         if not self.engine.client:
+            slog.log_warning(item.issue_id, "No GitHub client available")
             return None
         
         auto_config = self.engine.config.get('automation', {})
@@ -440,13 +472,26 @@ class AutomationDaemon:
         # Check if this PR already had its review cycle completed
         # If so, handle the final steps: mark ready for review, get approval, merge
         if item.pr_number and self.review_tracker.is_review_done(item.pr_number):
+            slog.log_action_check(item.issue_id, item.state, "review_tracker.is_review_done", True)
+            
             # Review already done - check for approval or need to finalize
             pr = self.engine.client.get_pr_by_number(item.pr_number)
             if not pr:
+                slog.log_warning(item.issue_id, f"Cannot get PR #{item.pr_number}")
                 return None
+            
+            # Log PR state detection
+            slog.log_pr_state_detection(
+                item.issue_id, item.pr_number, pr.state,
+                pr.is_draft, pr.copilot_is_working, 
+                getattr(pr, 'copilot_has_reviewed', False),
+                pr.state.value if hasattr(pr.state, 'value') else str(pr.state),
+                pr.reviewers
+            )
             
             # Step 1: If PR is still draft, mark it ready for review
             if pr.is_draft:
+                slog.log_action_start(item.issue_id, "Mark PR ready for review (review cycle complete)", {"pr_number": item.pr_number})
                 logger.info(f"[{item.issue_id}] Review cycle complete - marking PR as ready for review")
                 if self.engine.client.mark_pr_ready_for_review(item.pr_number):
                     item.last_action = "Marked PR as ready for review"
@@ -505,17 +550,20 @@ class AutomationDaemon:
         
         # State: Review requested → Reassign to Copilot (no cooldown)
         if item.state == WorkflowState.REVIEW_REQUESTED and item.pr_number:
+            slog.log_action_start(item.issue_id, "Reassign review to Copilot", {"state": "REVIEW_REQUESTED"})
             logger.info(f"[{item.issue_id}] Review requested - reassigning to Copilot")
             if self.engine.client.request_review_from_copilot(item.pr_number):
                 item.state = WorkflowState.REVIEWING
                 item.last_action = "Reassigned review to Copilot"
                 item.last_action_time = datetime.now()
                 self.workflow_history.add_event(item.issue_id, "Reassigned review to Copilot", item.state.value, item.pr_number)
+                slog.log_action_result(item.issue_id, "Reassign review", True)
                 return f"Reassigned review of PR #{item.pr_number} to Copilot"
         
         # State: Changes requested → Comment to apply (no cooldown)
         # ALSO: Mark the review as done to prevent infinite loop
         if item.state == WorkflowState.CHANGES_REQUESTED and item.pr_number:
+            slog.log_action_start(item.issue_id, "Comment @copilot apply changes", {"state": "CHANGES_REQUESTED"})
             logger.info(f"[{item.issue_id}] Changes requested - telling Copilot to apply")
             if self.engine.client.comment_apply_changes(item.pr_number):
                 # CRITICAL: Mark review as done BEFORE state change
@@ -526,11 +574,45 @@ class AutomationDaemon:
                 item.last_action = "Commented @copilot apply changes"
                 item.last_action_time = datetime.now()
                 self.workflow_history.add_event(item.issue_id, "Commented @copilot apply changes", item.state.value, item.pr_number)
+                slog.log_action_result(item.issue_id, "Comment apply changes", True, "Review marked done to prevent loop")
                 return f"Told Copilot to apply changes on PR #{item.pr_number}"
         
-        # State: Approved → Merge (no cooldown needed to merge, but START cooldown after)
+        # State: Approved → Mark ready (if draft) then Merge
         if item.state == WorkflowState.APPROVED and item.pr_number and auto_config.get('auto_merge', True):
-            logger.info(f"[{item.issue_id}] PR approved - merging")
+            slog.log_action_check(item.issue_id, item.state, "state=APPROVED && auto_merge=true", True)
+            
+            pr = self.engine.client.get_pr_by_number(item.pr_number)
+            if not pr:
+                slog.log_warning(item.issue_id, f"Cannot get PR #{item.pr_number}")
+                logger.warning(f"[{item.issue_id}] Cannot get PR #{item.pr_number}")
+                return None
+            
+            # Log PR status for debugging
+            slog.log_pr_state_detection(
+                item.issue_id, item.pr_number, pr.state,
+                pr.is_draft, pr.copilot_is_working,
+                getattr(pr, 'copilot_has_reviewed', False),
+                pr.state.value if hasattr(pr.state, 'value') else str(pr.state),
+                pr.reviewers
+            )
+            
+            # First, mark PR as ready if it's still a draft
+            if pr.is_draft:
+                slog.log_action_start(item.issue_id, "Mark PR ready (is_draft=True)", {"pr_number": item.pr_number})
+                logger.info(f"[{item.issue_id}] PR is draft - marking ready for review first")
+                if self.engine.client.mark_pr_ready_for_review(item.pr_number):
+                    item.last_action = "Marked PR ready for review"
+                    item.last_action_time = datetime.now()
+                    self.workflow_history.add_event(item.issue_id, "Marked PR ready for review", item.state.value, item.pr_number)
+                    slog.log_action_result(item.issue_id, "Mark PR ready", True)
+                    return f"Marked PR #{item.pr_number} as ready for review"
+                    return f"Marked PR #{item.pr_number} as ready for review"
+                else:
+                    logger.warning(f"[{item.issue_id}] Failed to mark PR as ready")
+                    return None
+            
+            # PR is ready - merge it
+            logger.info(f"[{item.issue_id}] PR approved and ready - merging")
             if self.engine.client.merge_pr(item.pr_number):
                 item.state = WorkflowState.MERGED
                 item.last_action = "Merged PR"
