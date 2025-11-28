@@ -416,6 +416,10 @@ class AutomationDaemon:
                 if "Assigned" in action:
                     can_assign = False
                     _, minutes_remaining = self.cooldown.can_assign()
+                # If we just merged something, cooldown has started - can't assign anymore
+                if "cooldown started" in action:
+                    can_assign = False
+                    slog.log_cooldown_check(can_assign, self.cooldown.cooldown_minutes)
         
         # Log cycle end
         slog.log_cycle_end(actions_taken)
@@ -605,7 +609,6 @@ class AutomationDaemon:
                     item.last_action_time = datetime.now()
                     self.workflow_history.add_event(item.issue_id, "Marked PR ready for review", item.state.value, item.pr_number)
                     slog.log_action_result(item.issue_id, "Mark PR ready", True)
-                    return f"Marked PR #{item.pr_number} as ready for review"
                     return f"Marked PR #{item.pr_number} as ready for review"
                 else:
                     logger.warning(f"[{item.issue_id}] Failed to mark PR as ready")
