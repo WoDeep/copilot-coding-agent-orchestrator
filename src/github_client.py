@@ -399,7 +399,11 @@ class GitHubClient:
                     elif event_type == 'copilot_work_finished' and event_time:
                         latest_work_finished = event_time
                     elif event_type == 'review_requested' and event_time:
-                        latest_review_requested = event_time
+                        # Only consider review requests for Copilot
+                        reviewer = event.get('requested_reviewer', {})
+                        reviewer_login = reviewer.get('login', '').lower() if reviewer else ''
+                        if 'copilot' in reviewer_login:
+                            latest_review_requested = event_time
                 
                 # If there's a work_started but no work_finished after it, Copilot is still working
                 if latest_work_started:

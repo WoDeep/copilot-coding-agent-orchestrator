@@ -305,6 +305,12 @@ def render_setup_wizard(config_path: Path, env_path: Path) -> bool:
             help="Automatically assign the next issue after cooldown"
         )
         
+        skip_final_review = st.checkbox(
+            "Skip final review (Auto-approve)",
+            value=True,
+            help="Skip the final human/Copilot review step and merge immediately after changes are applied"
+        )
+        
         poll_interval = st.number_input(
             "Poll interval (seconds)",
             min_value=30,
@@ -334,7 +340,8 @@ def render_setup_wizard(config_path: Path, env_path: Path) -> bool:
                 'cooldown_minutes': cooldown_minutes,
                 'auto_merge': auto_merge,
                 'auto_assign_next': auto_assign,
-                'poll_interval': poll_interval
+                'poll_interval': poll_interval,
+                'skip_final_review': skip_final_review
             },
             'issue_queue': [f"#{i['number']}" for i in issues],
             'issue_numbers': {f"#{i['number']}": i['number'] for i in issues}

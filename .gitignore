@@ -24,3 +24,12 @@ workflow_history.json
 
 *.log
 state_machine.log
+/state_machine.log.*
+*.pid
+*.sqlite3
+*.db
+*.db-*
+*.bak
+*.backup
+.DS_Store
+.cache/

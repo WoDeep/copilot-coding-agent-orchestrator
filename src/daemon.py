@@ -527,6 +527,10 @@ class AutomationDaemon:
             # Step 3: PR not approved yet - request final Copilot review to get approval
             # Only if skip_final_review is disabled
             elif pr.state not in [PRState.APPROVED]:
+                # Avoid infinite loop: if we are already reviewing, just wait
+                if item.state == WorkflowState.REVIEWING:
+                    return None
+
                 # Request a final Copilot review to get approval
                 logger.info(f"[{item.issue_id}] Review cycle complete, requesting final Copilot review for approval")
                 if self.engine.client.request_review_from_copilot(item.pr_number):
