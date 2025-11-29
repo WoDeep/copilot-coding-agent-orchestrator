@@ -812,3 +812,35 @@ st.markdown("""
     <p>Powered by <strong>Swaibian</strong> • Autonomous AI Development</p>
 </div>
 """, unsafe_allow_html=True)
+
+# Auto-refresh logic
+if st.session_state.connected and daemon_status.get('is_running'):
+    import time
+    
+    # Store the state we just rendered
+    current_last_cycle = daemon_status.get('last_cycle')
+    current_action_count = len(daemon_status.get('actions', []))
+    
+    # Create a placeholder for the watcher loop
+    # We use a loop that checks for changes every few seconds
+    # This keeps the script running (watching) but only triggers a full rerun when data changes
+    
+    check_interval = 5  # Check every 5 seconds
+    
+    # We use an empty container to hold the loop
+    with st.empty():
+        while True:
+            time.sleep(check_interval)
+            
+            try:
+                # Check for updates
+                new_status = get_daemon_status()
+                new_cycle = new_status.get('last_cycle')
+                new_action_count = len(new_status.get('actions', []))
+                
+                # If cycle timestamp changed or number of actions changed, trigger refresh
+                if new_cycle != current_last_cycle or new_action_count != current_action_count:
+                    st.rerun()
+            except Exception:
+                # If reading fails (e.g. file lock), just ignore and try next time
+                pass

@@ -1369,3 +1369,370 @@
 2025-11-28 20:32:12 | INFO     | No actions taken this cycle
 2025-11-28 20:32:12 | INFO     | ==================== CYCLE END ====================
 2025-11-28 20:32:12 | INFO     | 
+2025-11-29 07:00:18 | INFO     | 
+2025-11-29 07:00:18 | INFO     | ==================== AUTOMATION CYCLE ====================
+2025-11-29 07:00:18 | INFO     | Timestamp: 2025-11-29T07:00:18.180518
+2025-11-29 07:00:18 | INFO     | Queue Status: Total=6, InProgress=0, Queued=4, Completed=2
+2025-11-29 07:00:18 | DEBUG    | Cooldown Check: Cannot assign - 1 minutes remaining
+2025-11-29 07:00:18 | DEBUG    | [#213] Checking item - Current state: completed, PR: None
+2025-11-29 07:00:18 | DEBUG    | [#210] Checking item - Current state: completed, PR: None
+2025-11-29 07:00:18 | DEBUG    | [#211] Checking item - Current state: queued, PR: None
+2025-11-29 07:00:18 | DEBUG    | [#212] Checking item - Current state: queued, PR: None
+2025-11-29 07:00:18 | DEBUG    | [#209] Checking item - Current state: queued, PR: None
+2025-11-29 07:00:18 | DEBUG    | [#214] Checking item - Current state: queued, PR: None
+2025-11-29 07:00:18 | INFO     | No actions taken this cycle
+2025-11-29 07:00:18 | INFO     | ==================== CYCLE END ====================
+2025-11-29 07:00:18 | INFO     | 
+2025-11-29 07:04:41 | INFO     | 
+2025-11-29 07:04:41 | INFO     | ==================== AUTOMATION CYCLE ====================
+2025-11-29 07:04:41 | INFO     | Timestamp: 2025-11-29T07:04:41.737629
+2025-11-29 07:04:41 | INFO     | Queue Status: Total=6, InProgress=0, Queued=4, Completed=2
+2025-11-29 07:04:41 | DEBUG    | Cooldown Check: Can assign new issue
+2025-11-29 07:04:41 | DEBUG    | [#213] Checking item - Current state: completed, PR: None
+2025-11-29 07:04:41 | DEBUG    | [#210] Checking item - Current state: completed, PR: None
+2025-11-29 07:04:41 | DEBUG    | [#211] Checking item - Current state: queued, PR: None
+2025-11-29 07:04:47 | INFO     | [#211] STATE TRANSITION: queued → assigned
+2025-11-29 07:04:47 | INFO     | [#211]   Reason: Assigned issue #211 (#211) to Copilot
+2025-11-29 07:04:47 | DEBUG    | [#212] Checking item - Current state: queued, PR: None
+2025-11-29 07:04:47 | DEBUG    | [#209] Checking item - Current state: queued, PR: None
+2025-11-29 07:04:47 | DEBUG    | [#214] Checking item - Current state: queued, PR: None
+2025-11-29 07:04:47 | INFO     | Actions taken this cycle: 1
+2025-11-29 07:04:47 | INFO     |   ✓ Assigned issue #211 (#211) to Copilot
+2025-11-29 07:04:47 | INFO     | ==================== CYCLE END ====================
+2025-11-29 07:04:47 | INFO     | 
+2025-11-29 07:09:16 | INFO     | 
+2025-11-29 07:09:16 | INFO     | ==================== AUTOMATION CYCLE ====================
+2025-11-29 07:09:16 | INFO     | Timestamp: 2025-11-29T07:09:16.231311
+2025-11-29 07:09:16 | INFO     | Queue Status: Total=6, InProgress=1, Queued=3, Completed=2
+2025-11-29 07:09:16 | DEBUG    | Cooldown Check: Can assign new issue
+2025-11-29 07:09:16 | DEBUG    | [#213] Checking item - Current state: completed, PR: None
+2025-11-29 07:09:16 | DEBUG    | [#210] Checking item - Current state: completed, PR: None
+2025-11-29 07:09:16 | DEBUG    | [#211] Checking item - Current state: pr_open, PR: 257
+2025-11-29 07:09:19 | DEBUG    | [#212] Checking item - Current state: queued, PR: None
+2025-11-29 07:09:19 | DEBUG    | [#209] Checking item - Current state: queued, PR: None
+2025-11-29 07:09:19 | DEBUG    | [#214] Checking item - Current state: queued, PR: None
+2025-11-29 07:09:19 | INFO     | No actions taken this cycle
+2025-11-29 07:09:19 | INFO     | ==================== CYCLE END ====================
+2025-11-29 07:09:19 | INFO     | 
+2025-11-29 07:13:47 | INFO     | 
+2025-11-29 07:13:47 | INFO     | ==================== AUTOMATION CYCLE ====================
+2025-11-29 07:13:47 | INFO     | Timestamp: 2025-11-29T07:13:47.054656
+2025-11-29 07:13:47 | INFO     | Queue Status: Total=6, InProgress=1, Queued=3, Completed=2
+2025-11-29 07:13:47 | DEBUG    | Cooldown Check: Can assign new issue
+2025-11-29 07:13:47 | DEBUG    | [#213] Checking item - Current state: completed, PR: None
+2025-11-29 07:13:47 | DEBUG    | [#210] Checking item - Current state: completed, PR: None
+2025-11-29 07:13:47 | DEBUG    | [#211] Checking item - Current state: pr_open, PR: 257
+2025-11-29 07:13:50 | DEBUG    | [#212] Checking item - Current state: queued, PR: None
+2025-11-29 07:13:50 | DEBUG    | [#209] Checking item - Current state: queued, PR: None
+2025-11-29 07:13:50 | DEBUG    | [#214] Checking item - Current state: queued, PR: None
+2025-11-29 07:13:50 | INFO     | No actions taken this cycle
+2025-11-29 07:13:50 | INFO     | ==================== CYCLE END ====================
+2025-11-29 07:13:50 | INFO     | 
+2025-11-29 07:18:18 | INFO     | 
+2025-11-29 07:18:18 | INFO     | ==================== AUTOMATION CYCLE ====================
+2025-11-29 07:18:18 | INFO     | Timestamp: 2025-11-29T07:18:18.937333
+2025-11-29 07:18:18 | INFO     | Queue Status: Total=6, InProgress=1, Queued=3, Completed=2
+2025-11-29 07:18:18 | DEBUG    | Cooldown Check: Can assign new issue
+2025-11-29 07:18:18 | DEBUG    | [#213] Checking item - Current state: completed, PR: None
+2025-11-29 07:18:18 | DEBUG    | [#210] Checking item - Current state: completed, PR: None
+2025-11-29 07:18:18 | DEBUG    | [#211] Checking item - Current state: pr_open, PR: 257
+2025-11-29 07:18:22 | DEBUG    | [#212] Checking item - Current state: queued, PR: None
+2025-11-29 07:18:22 | DEBUG    | [#209] Checking item - Current state: queued, PR: None
+2025-11-29 07:18:22 | DEBUG    | [#214] Checking item - Current state: queued, PR: None
+2025-11-29 07:18:22 | INFO     | No actions taken this cycle
+2025-11-29 07:18:22 | INFO     | ==================== CYCLE END ====================
+2025-11-29 07:18:22 | INFO     | 
+2025-11-29 07:22:50 | INFO     | 
+2025-11-29 07:22:50 | INFO     | ==================== AUTOMATION CYCLE ====================
+2025-11-29 07:22:50 | INFO     | Timestamp: 2025-11-29T07:22:50.413711
+2025-11-29 07:22:50 | INFO     | Queue Status: Total=6, InProgress=1, Queued=3, Completed=2
+2025-11-29 07:22:50 | DEBUG    | Cooldown Check: Can assign new issue
+2025-11-29 07:22:50 | DEBUG    | [#213] Checking item - Current state: completed, PR: None
+2025-11-29 07:22:50 | DEBUG    | [#210] Checking item - Current state: completed, PR: None
+2025-11-29 07:22:50 | DEBUG    | [#211] Checking item - Current state: review_requested, PR: 257
+2025-11-29 07:22:50 | INFO     | [#211] ACTION START: Reassign review to Copilot
+2025-11-29 07:22:50 | DEBUG    | [#211]   state: REVIEW_REQUESTED
+2025-11-29 07:22:51 | INFO     | [#211] ACTION SUCCESS ✓: Reassign review
+2025-11-29 07:22:51 | INFO     | [#211] STATE TRANSITION: review_requested → reviewing
+2025-11-29 07:22:51 | INFO     | [#211]   Reason: Reassigned review of PR #257 to Copilot
+2025-11-29 07:22:51 | INFO     | [#211]   PR: #257
+2025-11-29 07:22:51 | DEBUG    | [#212] Checking item - Current state: queued, PR: None
+2025-11-29 07:22:51 | DEBUG    | [#209] Checking item - Current state: queued, PR: None
+2025-11-29 07:22:51 | DEBUG    | [#214] Checking item - Current state: queued, PR: None
+2025-11-29 07:22:51 | INFO     | Actions taken this cycle: 1
+2025-11-29 07:22:51 | INFO     |   ✓ Reassigned review of PR #257 to Copilot
+2025-11-29 07:22:51 | INFO     | ==================== CYCLE END ====================
+2025-11-29 07:22:51 | INFO     | 
+2025-11-29 07:27:20 | INFO     | 
+2025-11-29 07:27:20 | INFO     | ==================== AUTOMATION CYCLE ====================
+2025-11-29 07:27:20 | INFO     | Timestamp: 2025-11-29T07:27:20.449852
+2025-11-29 07:27:20 | INFO     | Queue Status: Total=6, InProgress=1, Queued=3, Completed=2
+2025-11-29 07:27:20 | DEBUG    | Cooldown Check: Can assign new issue
+2025-11-29 07:27:20 | DEBUG    | [#213] Checking item - Current state: completed, PR: None
+2025-11-29 07:27:20 | DEBUG    | [#210] Checking item - Current state: completed, PR: None
+2025-11-29 07:27:20 | DEBUG    | [#211] Checking item - Current state: changes_requested, PR: 257
+2025-11-29 07:27:20 | INFO     | [#211] ACTION START: Comment @copilot apply changes
+2025-11-29 07:27:20 | DEBUG    | [#211]   state: CHANGES_REQUESTED
+2025-11-29 07:27:21 | INFO     | [#211] ACTION SUCCESS ✓: Comment apply changes
+2025-11-29 07:27:21 | INFO     | [#211]   Review marked done to prevent loop
+2025-11-29 07:27:21 | INFO     | [#211] STATE TRANSITION: changes_requested → applying_changes
+2025-11-29 07:27:21 | INFO     | [#211]   Reason: Told Copilot to apply changes on PR #257
+2025-11-29 07:27:21 | INFO     | [#211]   PR: #257
+2025-11-29 07:27:21 | DEBUG    | [#212] Checking item - Current state: queued, PR: None
+2025-11-29 07:27:21 | DEBUG    | [#209] Checking item - Current state: queued, PR: None
+2025-11-29 07:27:21 | DEBUG    | [#214] Checking item - Current state: queued, PR: None
+2025-11-29 07:27:21 | INFO     | Actions taken this cycle: 1
+2025-11-29 07:27:21 | INFO     |   ✓ Told Copilot to apply changes on PR #257
+2025-11-29 07:27:21 | INFO     | ==================== CYCLE END ====================
+2025-11-29 07:27:21 | INFO     | 
+2025-11-29 07:31:50 | INFO     | 
+2025-11-29 07:31:50 | INFO     | ==================== AUTOMATION CYCLE ====================
+2025-11-29 07:31:50 | INFO     | Timestamp: 2025-11-29T07:31:50.267085
+2025-11-29 07:31:50 | INFO     | Queue Status: Total=6, InProgress=1, Queued=3, Completed=2
+2025-11-29 07:31:50 | DEBUG    | Cooldown Check: Can assign new issue
+2025-11-29 07:31:50 | DEBUG    | [#213] Checking item - Current state: completed, PR: None
+2025-11-29 07:31:50 | DEBUG    | [#210] Checking item - Current state: completed, PR: None
+2025-11-29 07:31:50 | DEBUG    | [#211] Checking item - Current state: applying_changes, PR: 257
+2025-11-29 07:31:50 | DEBUG    | [#211] Action Check (applying_changes): review_tracker.is_review_done = ✓
+2025-11-29 07:31:54 | DEBUG    | [#211] PR #257 State Detection:
+2025-11-29 07:31:54 | DEBUG    | [#211]   Detected PR State: changes_requested
+2025-11-29 07:31:54 | DEBUG    | [#211]   is_draft: True
+2025-11-29 07:31:54 | DEBUG    | [#211]   copilot_is_working: True
+2025-11-29 07:31:54 | DEBUG    | [#211]   copilot_has_reviewed: True
+2025-11-29 07:31:54 | DEBUG    | [#211]   review_state: changes_requested
+2025-11-29 07:31:54 | DEBUG    | [#211]   reviewers: ['WoDeep']
+2025-11-29 07:31:54 | INFO     | [#211] ACTION START: Mark PR ready for review (review cycle complete)
+2025-11-29 07:31:54 | DEBUG    | [#211]   pr_number: 257
+2025-11-29 07:31:55 | DEBUG    | [#212] Checking item - Current state: queued, PR: None
+2025-11-29 07:31:55 | DEBUG    | [#209] Checking item - Current state: queued, PR: None
+2025-11-29 07:31:55 | DEBUG    | [#214] Checking item - Current state: queued, PR: None
+2025-11-29 07:31:55 | INFO     | Actions taken this cycle: 1
+2025-11-29 07:31:55 | INFO     |   ✓ Marked PR #257 as ready for review (review cycle complete)
+2025-11-29 07:31:55 | INFO     | ==================== CYCLE END ====================
+2025-11-29 07:31:55 | INFO     | 
+2025-11-29 07:36:24 | INFO     | 
+2025-11-29 07:36:24 | INFO     | ==================== AUTOMATION CYCLE ====================
+2025-11-29 07:36:24 | INFO     | Timestamp: 2025-11-29T07:36:24.353940
+2025-11-29 07:36:24 | INFO     | Queue Status: Total=6, InProgress=1, Queued=3, Completed=2
+2025-11-29 07:36:24 | DEBUG    | Cooldown Check: Can assign new issue
+2025-11-29 07:36:24 | DEBUG    | [#213] Checking item - Current state: completed, PR: None
+2025-11-29 07:36:24 | DEBUG    | [#210] Checking item - Current state: completed, PR: None
+2025-11-29 07:36:24 | DEBUG    | [#211] Checking item - Current state: applying_changes, PR: 257
+2025-11-29 07:36:24 | DEBUG    | [#211] Action Check (applying_changes): review_tracker.is_review_done = ✓
+2025-11-29 07:36:28 | DEBUG    | [#211] PR #257 State Detection:
+2025-11-29 07:36:28 | DEBUG    | [#211]   Detected PR State: changes_requested
+2025-11-29 07:36:28 | DEBUG    | [#211]   is_draft: False
+2025-11-29 07:36:28 | DEBUG    | [#211]   copilot_is_working: True
+2025-11-29 07:36:28 | DEBUG    | [#211]   copilot_has_reviewed: True
+2025-11-29 07:36:28 | DEBUG    | [#211]   review_state: changes_requested
+2025-11-29 07:36:28 | DEBUG    | [#211]   reviewers: ['WoDeep']
+2025-11-29 07:36:30 | INFO     | [#211] STATE TRANSITION: applying_changes → merged
+2025-11-29 07:36:30 | INFO     | [#211]   Reason: Merged PR #257 - review cycle complete (skip_final_review enabled) - cooldown started
+2025-11-29 07:36:30 | INFO     | [#211]   PR: #257
+2025-11-29 07:36:30 | DEBUG    | Cooldown Check: Cannot assign - 7 minutes remaining
+2025-11-29 07:36:30 | DEBUG    | [#212] Checking item - Current state: queued, PR: None
+2025-11-29 07:36:30 | DEBUG    | [#209] Checking item - Current state: queued, PR: None
+2025-11-29 07:36:30 | DEBUG    | [#214] Checking item - Current state: queued, PR: None
+2025-11-29 07:36:30 | INFO     | Actions taken this cycle: 1
+2025-11-29 07:36:30 | INFO     |   ✓ Merged PR #257 - review cycle complete (skip_final_review enabled) - cooldown started
+2025-11-29 07:36:30 | INFO     | ==================== CYCLE END ====================
+2025-11-29 07:36:30 | INFO     | 
+2025-11-29 07:40:54 | INFO     | 
+2025-11-29 07:40:54 | INFO     | ==================== AUTOMATION CYCLE ====================
+2025-11-29 07:40:54 | INFO     | Timestamp: 2025-11-29T07:40:54.425543
+2025-11-29 07:40:54 | INFO     | Queue Status: Total=6, InProgress=0, Queued=3, Completed=3
+2025-11-29 07:40:54 | DEBUG    | Cooldown Check: Cannot assign - 2 minutes remaining
+2025-11-29 07:40:54 | DEBUG    | [#213] Checking item - Current state: completed, PR: None
+2025-11-29 07:40:54 | DEBUG    | [#210] Checking item - Current state: completed, PR: None
+2025-11-29 07:40:54 | DEBUG    | [#211] Checking item - Current state: completed, PR: 257
+2025-11-29 07:40:54 | DEBUG    | [#212] Checking item - Current state: queued, PR: None
+2025-11-29 07:40:54 | DEBUG    | [#209] Checking item - Current state: queued, PR: None
+2025-11-29 07:40:54 | DEBUG    | [#214] Checking item - Current state: queued, PR: None
+2025-11-29 07:40:54 | INFO     | No actions taken this cycle
+2025-11-29 07:40:54 | INFO     | ==================== CYCLE END ====================
+2025-11-29 07:40:54 | INFO     | 
+2025-11-29 07:45:18 | INFO     | 
+2025-11-29 07:45:18 | INFO     | ==================== AUTOMATION CYCLE ====================
+2025-11-29 07:45:18 | INFO     | Timestamp: 2025-11-29T07:45:18.788271
+2025-11-29 07:45:18 | INFO     | Queue Status: Total=6, InProgress=0, Queued=3, Completed=3
+2025-11-29 07:45:18 | DEBUG    | Cooldown Check: Can assign new issue
+2025-11-29 07:45:18 | DEBUG    | [#213] Checking item - Current state: completed, PR: None
+2025-11-29 07:45:18 | DEBUG    | [#210] Checking item - Current state: completed, PR: None
+2025-11-29 07:45:18 | DEBUG    | [#211] Checking item - Current state: completed, PR: 257
+2025-11-29 07:45:18 | DEBUG    | [#212] Checking item - Current state: queued, PR: None
+2025-11-29 07:45:23 | INFO     | [#212] STATE TRANSITION: queued → assigned
+2025-11-29 07:45:23 | INFO     | [#212]   Reason: Assigned issue #212 (#212) to Copilot
+2025-11-29 07:45:23 | DEBUG    | [#209] Checking item - Current state: queued, PR: None
+2025-11-29 07:45:23 | DEBUG    | [#214] Checking item - Current state: queued, PR: None
+2025-11-29 07:45:23 | INFO     | Actions taken this cycle: 1
+2025-11-29 07:45:23 | INFO     |   ✓ Assigned issue #212 (#212) to Copilot
+2025-11-29 07:45:23 | INFO     | ==================== CYCLE END ====================
+2025-11-29 07:45:23 | INFO     | 
+2025-11-29 07:49:51 | INFO     | 
+2025-11-29 07:49:51 | INFO     | ==================== AUTOMATION CYCLE ====================
+2025-11-29 07:49:51 | INFO     | Timestamp: 2025-11-29T07:49:51.987623
+2025-11-29 07:49:51 | INFO     | Queue Status: Total=6, InProgress=1, Queued=2, Completed=3
+2025-11-29 07:49:51 | DEBUG    | Cooldown Check: Can assign new issue
+2025-11-29 07:49:51 | DEBUG    | [#213] Checking item - Current state: completed, PR: None
+2025-11-29 07:49:51 | DEBUG    | [#210] Checking item - Current state: completed, PR: None
+2025-11-29 07:49:51 | DEBUG    | [#211] Checking item - Current state: completed, PR: 257
+2025-11-29 07:49:51 | DEBUG    | [#212] Checking item - Current state: pr_open, PR: 258
+2025-11-29 07:49:55 | DEBUG    | [#209] Checking item - Current state: queued, PR: None
+2025-11-29 07:49:55 | DEBUG    | [#214] Checking item - Current state: queued, PR: None
+2025-11-29 07:49:55 | INFO     | No actions taken this cycle
+2025-11-29 07:49:55 | INFO     | ==================== CYCLE END ====================
+2025-11-29 07:49:55 | INFO     | 
+2025-11-29 07:54:23 | INFO     | 
+2025-11-29 07:54:23 | INFO     | ==================== AUTOMATION CYCLE ====================
+2025-11-29 07:54:23 | INFO     | Timestamp: 2025-11-29T07:54:23.438110
+2025-11-29 07:54:23 | INFO     | Queue Status: Total=6, InProgress=1, Queued=2, Completed=3
+2025-11-29 07:54:23 | DEBUG    | Cooldown Check: Can assign new issue
+2025-11-29 07:54:23 | DEBUG    | [#213] Checking item - Current state: completed, PR: None
+2025-11-29 07:54:23 | DEBUG    | [#210] Checking item - Current state: completed, PR: None
+2025-11-29 07:54:23 | DEBUG    | [#211] Checking item - Current state: completed, PR: 257
+2025-11-29 07:54:23 | DEBUG    | [#212] Checking item - Current state: pr_open, PR: 258
+2025-11-29 07:54:26 | DEBUG    | [#209] Checking item - Current state: queued, PR: None
+2025-11-29 07:54:26 | DEBUG    | [#214] Checking item - Current state: queued, PR: None
+2025-11-29 07:54:26 | INFO     | No actions taken this cycle
+2025-11-29 07:54:26 | INFO     | ==================== CYCLE END ====================
+2025-11-29 07:54:26 | INFO     | 
+2025-11-29 07:58:54 | INFO     | 
+2025-11-29 07:58:54 | INFO     | ==================== AUTOMATION CYCLE ====================
+2025-11-29 07:58:54 | INFO     | Timestamp: 2025-11-29T07:58:54.543573
+2025-11-29 07:58:54 | INFO     | Queue Status: Total=6, InProgress=1, Queued=2, Completed=3
+2025-11-29 07:58:54 | DEBUG    | Cooldown Check: Can assign new issue
+2025-11-29 07:58:54 | DEBUG    | [#213] Checking item - Current state: completed, PR: None
+2025-11-29 07:58:54 | DEBUG    | [#210] Checking item - Current state: completed, PR: None
+2025-11-29 07:58:54 | DEBUG    | [#211] Checking item - Current state: completed, PR: 257
+2025-11-29 07:58:54 | DEBUG    | [#212] Checking item - Current state: pr_open, PR: 258
+2025-11-29 07:58:57 | DEBUG    | [#209] Checking item - Current state: queued, PR: None
+2025-11-29 07:58:57 | DEBUG    | [#214] Checking item - Current state: queued, PR: None
+2025-11-29 07:58:57 | INFO     | No actions taken this cycle
+2025-11-29 07:58:57 | INFO     | ==================== CYCLE END ====================
+2025-11-29 07:58:57 | INFO     | 
+2025-11-29 08:03:25 | INFO     | 
+2025-11-29 08:03:25 | INFO     | ==================== AUTOMATION CYCLE ====================
+2025-11-29 08:03:25 | INFO     | Timestamp: 2025-11-29T08:03:25.795284
+2025-11-29 08:03:25 | INFO     | Queue Status: Total=6, InProgress=1, Queued=2, Completed=3
+2025-11-29 08:03:25 | DEBUG    | Cooldown Check: Can assign new issue
+2025-11-29 08:03:25 | DEBUG    | [#213] Checking item - Current state: completed, PR: None
+2025-11-29 08:03:25 | DEBUG    | [#210] Checking item - Current state: completed, PR: None
+2025-11-29 08:03:25 | DEBUG    | [#211] Checking item - Current state: completed, PR: 257
+2025-11-29 08:03:25 | DEBUG    | [#212] Checking item - Current state: review_requested, PR: 258
+2025-11-29 08:03:25 | INFO     | [#212] ACTION START: Reassign review to Copilot
+2025-11-29 08:03:25 | DEBUG    | [#212]   state: REVIEW_REQUESTED
+2025-11-29 08:03:27 | INFO     | [#212] ACTION SUCCESS ✓: Reassign review
+2025-11-29 08:03:27 | INFO     | [#212] STATE TRANSITION: review_requested → reviewing
+2025-11-29 08:03:27 | INFO     | [#212]   Reason: Reassigned review of PR #258 to Copilot
+2025-11-29 08:03:27 | INFO     | [#212]   PR: #258
+2025-11-29 08:03:27 | DEBUG    | [#209] Checking item - Current state: queued, PR: None
+2025-11-29 08:03:27 | DEBUG    | [#214] Checking item - Current state: queued, PR: None
+2025-11-29 08:03:27 | INFO     | Actions taken this cycle: 1
+2025-11-29 08:03:27 | INFO     |   ✓ Reassigned review of PR #258 to Copilot
+2025-11-29 08:03:27 | INFO     | ==================== CYCLE END ====================
+2025-11-29 08:03:27 | INFO     | 
+2025-11-29 08:07:55 | INFO     | 
+2025-11-29 08:07:55 | INFO     | ==================== AUTOMATION CYCLE ====================
+2025-11-29 08:07:55 | INFO     | Timestamp: 2025-11-29T08:07:55.149659
+2025-11-29 08:07:55 | INFO     | Queue Status: Total=6, InProgress=1, Queued=2, Completed=3
+2025-11-29 08:07:55 | DEBUG    | Cooldown Check: Can assign new issue
+2025-11-29 08:07:55 | DEBUG    | [#213] Checking item - Current state: completed, PR: None
+2025-11-29 08:07:55 | DEBUG    | [#210] Checking item - Current state: completed, PR: None
+2025-11-29 08:07:55 | DEBUG    | [#211] Checking item - Current state: completed, PR: 257
+2025-11-29 08:07:55 | DEBUG    | [#212] Checking item - Current state: reviewing, PR: 258
+2025-11-29 08:07:55 | DEBUG    | [#209] Checking item - Current state: queued, PR: None
+2025-11-29 08:07:55 | DEBUG    | [#214] Checking item - Current state: queued, PR: None
+2025-11-29 08:07:55 | INFO     | No actions taken this cycle
+2025-11-29 08:07:55 | INFO     | ==================== CYCLE END ====================
+2025-11-29 08:07:55 | INFO     | 
+2025-11-29 08:12:23 | INFO     | 
+2025-11-29 08:12:23 | INFO     | ==================== AUTOMATION CYCLE ====================
+2025-11-29 08:12:23 | INFO     | Timestamp: 2025-11-29T08:12:23.244969
+2025-11-29 08:12:23 | INFO     | Queue Status: Total=6, InProgress=1, Queued=2, Completed=3
+2025-11-29 08:12:23 | DEBUG    | Cooldown Check: Can assign new issue
+2025-11-29 08:12:23 | DEBUG    | [#213] Checking item - Current state: completed, PR: None
+2025-11-29 08:12:23 | DEBUG    | [#210] Checking item - Current state: completed, PR: None
+2025-11-29 08:12:23 | DEBUG    | [#211] Checking item - Current state: completed, PR: 257
+2025-11-29 08:12:23 | DEBUG    | [#212] Checking item - Current state: changes_requested, PR: 258
+2025-11-29 08:12:23 | INFO     | [#212] ACTION START: Comment @copilot apply changes
+2025-11-29 08:12:23 | DEBUG    | [#212]   state: CHANGES_REQUESTED
+2025-11-29 08:12:24 | INFO     | [#212] ACTION SUCCESS ✓: Comment apply changes
+2025-11-29 08:12:24 | INFO     | [#212]   Review marked done to prevent loop
+2025-11-29 08:12:24 | INFO     | [#212] STATE TRANSITION: changes_requested → applying_changes
+2025-11-29 08:12:24 | INFO     | [#212]   Reason: Told Copilot to apply changes on PR #258
+2025-11-29 08:12:24 | INFO     | [#212]   PR: #258
+2025-11-29 08:12:24 | DEBUG    | [#209] Checking item - Current state: queued, PR: None
+2025-11-29 08:12:24 | DEBUG    | [#214] Checking item - Current state: queued, PR: None
+2025-11-29 08:12:24 | INFO     | Actions taken this cycle: 1
+2025-11-29 08:12:24 | INFO     |   ✓ Told Copilot to apply changes on PR #258
+2025-11-29 08:12:24 | INFO     | ==================== CYCLE END ====================
+2025-11-29 08:12:24 | INFO     | 
+2025-11-29 08:16:52 | INFO     | 
+2025-11-29 08:16:52 | INFO     | ==================== AUTOMATION CYCLE ====================
+2025-11-29 08:16:52 | INFO     | Timestamp: 2025-11-29T08:16:52.906796
+2025-11-29 08:16:52 | INFO     | Queue Status: Total=6, InProgress=1, Queued=2, Completed=3
+2025-11-29 08:16:52 | DEBUG    | Cooldown Check: Can assign new issue
+2025-11-29 08:16:52 | DEBUG    | [#213] Checking item - Current state: completed, PR: None
+2025-11-29 08:16:52 | DEBUG    | [#210] Checking item - Current state: completed, PR: None
+2025-11-29 08:16:52 | DEBUG    | [#211] Checking item - Current state: completed, PR: 257
+2025-11-29 08:16:52 | DEBUG    | [#212] Checking item - Current state: applying_changes, PR: 258
+2025-11-29 08:16:52 | DEBUG    | [#212] Action Check (applying_changes): review_tracker.is_review_done = ✓
+2025-11-29 08:16:57 | DEBUG    | [#212] PR #258 State Detection:
+2025-11-29 08:16:57 | DEBUG    | [#212]   Detected PR State: changes_requested
+2025-11-29 08:16:57 | DEBUG    | [#212]   is_draft: True
+2025-11-29 08:16:57 | DEBUG    | [#212]   copilot_is_working: True
+2025-11-29 08:16:57 | DEBUG    | [#212]   copilot_has_reviewed: True
+2025-11-29 08:16:57 | DEBUG    | [#212]   review_state: changes_requested
+2025-11-29 08:16:57 | DEBUG    | [#212]   reviewers: ['WoDeep']
+2025-11-29 08:16:57 | INFO     | [#212] ACTION START: Mark PR ready for review (review cycle complete)
+2025-11-29 08:16:57 | DEBUG    | [#212]   pr_number: 258
+2025-11-29 08:16:58 | DEBUG    | [#209] Checking item - Current state: queued, PR: None
+2025-11-29 08:16:58 | DEBUG    | [#214] Checking item - Current state: queued, PR: None
+2025-11-29 08:16:58 | INFO     | Actions taken this cycle: 1
+2025-11-29 08:16:58 | INFO     |   ✓ Marked PR #258 as ready for review (review cycle complete)
+2025-11-29 08:16:58 | INFO     | ==================== CYCLE END ====================
+2025-11-29 08:16:58 | INFO     | 
+2025-11-29 08:21:26 | INFO     | 
+2025-11-29 08:21:26 | INFO     | ==================== AUTOMATION CYCLE ====================
+2025-11-29 08:21:26 | INFO     | Timestamp: 2025-11-29T08:21:26.469026
+2025-11-29 08:21:26 | INFO     | Queue Status: Total=6, InProgress=1, Queued=2, Completed=3
+2025-11-29 08:21:26 | DEBUG    | Cooldown Check: Can assign new issue
+2025-11-29 08:21:26 | DEBUG    | [#213] Checking item - Current state: completed, PR: None
+2025-11-29 08:21:26 | DEBUG    | [#210] Checking item - Current state: completed, PR: None
+2025-11-29 08:21:26 | DEBUG    | [#211] Checking item - Current state: completed, PR: 257
+2025-11-29 08:21:26 | DEBUG    | [#212] Checking item - Current state: applying_changes, PR: 258
+2025-11-29 08:21:26 | DEBUG    | [#212] Action Check (applying_changes): review_tracker.is_review_done = ✓
+2025-11-29 08:21:30 | DEBUG    | [#212] PR #258 State Detection:
+2025-11-29 08:21:30 | DEBUG    | [#212]   Detected PR State: changes_requested
+2025-11-29 08:21:30 | DEBUG    | [#212]   is_draft: False
+2025-11-29 08:21:30 | DEBUG    | [#212]   copilot_is_working: True
+2025-11-29 08:21:30 | DEBUG    | [#212]   copilot_has_reviewed: True
+2025-11-29 08:21:30 | DEBUG    | [#212]   review_state: changes_requested
+2025-11-29 08:21:30 | DEBUG    | [#212]   reviewers: ['WoDeep']
+2025-11-29 08:21:32 | INFO     | [#212] STATE TRANSITION: applying_changes → merged
+2025-11-29 08:21:32 | INFO     | [#212]   Reason: Merged PR #258 - review cycle complete (skip_final_review enabled) - cooldown started
+2025-11-29 08:21:32 | INFO     | [#212]   PR: #258
+2025-11-29 08:21:32 | DEBUG    | Cooldown Check: Cannot assign - 7 minutes remaining
+2025-11-29 08:21:32 | DEBUG    | [#209] Checking item - Current state: queued, PR: None
+2025-11-29 08:21:32 | DEBUG    | [#214] Checking item - Current state: queued, PR: None
+2025-11-29 08:21:32 | INFO     | Actions taken this cycle: 1
+2025-11-29 08:21:32 | INFO     |   ✓ Merged PR #258 - review cycle complete (skip_final_review enabled) - cooldown started
+2025-11-29 08:21:32 | INFO     | ==================== CYCLE END ====================
+2025-11-29 08:21:32 | INFO     | 
+2025-11-29 08:25:02 | INFO     | 
+2025-11-29 08:25:02 | INFO     | ==================== AUTOMATION CYCLE ====================
+2025-11-29 08:25:02 | INFO     | Timestamp: 2025-11-29T08:25:02.242486
+2025-11-29 08:25:02 | INFO     | Queue Status: Total=6, InProgress=0, Queued=2, Completed=4
+2025-11-29 08:25:02 | DEBUG    | Cooldown Check: Can assign new issue
+2025-11-29 08:25:02 | DEBUG    | [#213] Checking item - Current state: completed, PR: None
+2025-11-29 08:25:02 | DEBUG    | [#210] Checking item - Current state: completed, PR: None
+2025-11-29 08:25:02 | DEBUG    | [#211] Checking item - Current state: completed, PR: None
+2025-11-29 08:25:02 | DEBUG    | [#212] Checking item - Current state: completed, PR: None
+2025-11-29 08:25:02 | DEBUG    | [#209] Checking item - Current state: queued, PR: None
+2025-11-29 08:25:07 | INFO     | [#209] STATE TRANSITION: queued → assigned
+2025-11-29 08:25:07 | INFO     | [#209]   Reason: Assigned issue #209 (#209) to Copilot
+2025-11-29 08:25:07 | DEBUG    | [#214] Checking item - Current state: queued, PR: None
+2025-11-29 08:25:07 | INFO     | Actions taken this cycle: 1
+2025-11-29 08:25:07 | INFO     |   ✓ Assigned issue #209 (#209) to Copilot
+2025-11-29 08:25:07 | INFO     | ==================== CYCLE END ====================
+2025-11-29 08:25:07 | INFO     | 
