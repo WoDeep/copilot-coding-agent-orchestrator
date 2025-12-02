@@ -371,8 +371,25 @@ class GitHubClient:
         copilot_is_working = False
         copilot_work_just_finished = False  # True if Copilot finished within 120 seconds - grace period for comment indexing
         
-        # DETECTION 1: Check timeline events for Copilot reviewer status
-        # The Copilot reviewer uses copilot_work_started/copilot_work_finished events
+        # ======================================================================
+        # PRIMARY DETECTION: Timeline events are the SOURCE OF TRUTH
+        # ======================================================================
+        # GitHub's timeline events are the AUTHORITATIVE signal for Copilot work:
+        #   - copilot_work_started: Copilot began working (review OR apply changes)
+        #   - copilot_work_finished: Copilot completed work
+        #
+        # This applies to ALL Copilot work, whether:
+        #   - Reviewing a PR
+        #   - Applying suggested changes
+        #   - Any other Copilot-initiated work
+        #
+        # DO NOT take any action while copilot_work_started > copilot_work_finished
+        # ======================================================================
+        
+        timeline_copilot_is_working = False
+        latest_work_started_time = None
+        latest_work_finished_time = None
+        
         try:
             import requests
             timeline_url = f"https://api.github.com/repos/{self.owner}/{self.repo_name}/issues/{pr.number}/timeline"
@@ -385,7 +402,7 @@ class GitHubClient:
             if response.status_code == 200:
                 events = response.json()
                 
-                # Find the latest copilot_work_started, copilot_work_finished, and review_requested events
+                # Find the LATEST copilot_work_started and copilot_work_finished events
                 latest_work_started = None
                 latest_work_finished = None
                 latest_review_requested = None
@@ -396,8 +413,10 @@ class GitHubClient:
                     
                     if event_type == 'copilot_work_started' and event_time:
                         latest_work_started = event_time
+                        print(f"[DEBUG] Found copilot_work_started: {event_time}")
                     elif event_type == 'copilot_work_finished' and event_time:
                         latest_work_finished = event_time
+                        print(f"[DEBUG] Found copilot_work_finished: {event_time}")
                     elif event_type == 'review_requested' and event_time:
                         # Only consider review requests for Copilot
                         reviewer = event.get('requested_reviewer', {})
@@ -405,57 +424,55 @@ class GitHubClient:
                         if 'copilot' in reviewer_login:
                             latest_review_requested = event_time
                 
-                # If there's a work_started but no work_finished after it, Copilot is still working
+                # CRITICAL DECISION: Is Copilot currently working?
+                # Copilot IS working if:
+                #   1. There's a work_started event, AND
+                #   2. There's NO work_finished event after it
                 if latest_work_started:
                     if not latest_work_finished or latest_work_started > latest_work_finished:
-                        copilot_is_working = True
-                        print(f"[DEBUG] Copilot reviewer is working (work_started: {latest_work_started}, work_finished: {latest_work_finished})")
+                        timeline_copilot_is_working = True
+                        print(f"[DEBUG] ⚠️  COPILOT IS WORKING - DO NOT PROCEED")
+                        print(f"[DEBUG]    work_started: {latest_work_started}")
+                        print(f"[DEBUG]    work_finished: {latest_work_finished}")
                     else:
-                        copilot_is_working = False
-                        # IMPORTANT: If Copilot finished AFTER a review was requested,
-                        # consider the review complete (even without formal review submission)
+                        timeline_copilot_is_working = False
+                        print(f"[DEBUG] ✓ Copilot finished work")
+                        print(f"[DEBUG]    work_started: {latest_work_started}")
+                        print(f"[DEBUG]    work_finished: {latest_work_finished}")
+                        
+                        # Parse the finish time for grace period and review detection
+                        if isinstance(latest_work_finished, str):
+                            latest_work_finished_time = datetime.fromisoformat(latest_work_finished.replace('Z', '+00:00'))
+                        else:
+                            latest_work_finished_time = latest_work_finished
+                        
+                        # If Copilot finished AFTER a review was requested,
+                        # consider the review complete
                         if latest_review_requested and latest_work_finished > latest_review_requested:
                             copilot_has_reviewed = True
-                            # Store the finish time for grace period check
-                            # Parse ISO string to datetime
-                            from datetime import datetime, timezone
-                            if isinstance(latest_work_finished, str):
-                                copilot_review_finished_at = datetime.fromisoformat(latest_work_finished.replace('Z', '+00:00'))
-                            else:
-                                copilot_review_finished_at = latest_work_finished
-                                
-                            # Check if Copilot just finished (within 120 seconds) - grace period for comment indexing
+                            
+                            # Check if Copilot just finished (within 120 seconds) - grace period
                             now = datetime.now(timezone.utc)
-                            seconds_since_finish = (now - copilot_review_finished_at).total_seconds()
+                            seconds_since_finish = (now - latest_work_finished_time).total_seconds()
                             if seconds_since_finish < 120:
                                 copilot_work_just_finished = True
-                                print(f"[DEBUG] Copilot reviewer JUST finished {seconds_since_finish:.0f}s ago - grace period active")
+                                print(f"[DEBUG] Copilot JUST finished {seconds_since_finish:.0f}s ago - grace period active")
                             else:
-                                print(f"[DEBUG] Copilot reviewer finished {seconds_since_finish:.0f}s ago - grace period passed")
-                            print(f"[DEBUG] Copilot reviewer finished review (work_finished: {latest_work_finished} > review_requested: {latest_review_requested})")
-                        else:
-                            print(f"[DEBUG] Copilot reviewer finished (work_finished: {latest_work_finished} > work_started: {latest_work_started})")
+                                print(f"[DEBUG] Copilot finished {seconds_since_finish:.0f}s ago - grace period passed")
+                else:
+                    print(f"[DEBUG] No copilot_work_started event found")
+                    
         except Exception as e:
             print(f"[DEBUG] Could not check timeline events: {e}")
         
-        # DETECTION 2: Check for "@copilot apply" comment pattern (for APPLYING_CHANGES workflow)
-        # This detection is ONLY relevant during the APPLYING_CHANGES workflow state.
-        # It does NOT affect the initial PR creation or review phases.
-        #
-        # When we tell Copilot to apply changes ("@copilot apply changes"), it:
-        # 1. Makes multiple commits (could be 1, 2, 5, or more)
-        # 2. Posts intermediate comments like "Applied all suggested changes"
-        # 3. FINALLY posts: "Copilot finished work on behalf of @user"
-        #
-        # The ONLY reliable signal is: "Copilot finished work on behalf of"
-        # We wait for this, regardless of how many commits or other comments.
-        #
-        # IMPORTANT: copilot_is_working only becomes True if there's an "@copilot apply"
-        # request. For initial PR creation (no apply request), it stays False.
+        # ======================================================================
+        # FALLBACK DETECTION: Comment-based detection (backup only)
+        # ======================================================================
+        # Only used if timeline events aren't available or as additional confirmation.
+        # Looks for "Copilot finished work on behalf of" in comments.
+        # ======================================================================
         
-        has_apply_changes_request = False
-        apply_changes_request_time = None
-        copilot_finished_work_time = None
+        comment_copilot_finished = False
         
         try:
             comments = list(pr.get_issue_comments())
@@ -463,50 +480,39 @@ class GitHubClient:
             for comment in comments:
                 body = comment.body or ""
                 body_lower = body.lower()
-                comment_time = comment.created_at
-                if comment_time.tzinfo is None:
-                    comment_time = comment_time.replace(tzinfo=timezone.utc)
                 
-                # Check for "@copilot apply changes" request (any variation)
-                # This triggers the waiting mechanism
-                if "@copilot" in body_lower and "apply" in body_lower:
-                    has_apply_changes_request = True
-                    apply_changes_request_time = comment_time
-                
-                # Check for THE definitive completion signal
-                # "Copilot finished work on behalf of" - this is the ONLY signal we trust
-                # UPDATE: Added more variations and a timeout safeguard
-                if "copilot finished work on behalf of" in body_lower or \
-                   "applied all suggested changes" in body_lower or \
-                   "i have applied the changes" in body_lower:
-                    copilot_finished_work_time = comment_time
-            
-            # Decision logic:
-            # - Only activate waiting if there's been an "@copilot apply" request
-            # - Without such request, copilot_is_working stays False (no blocking)
-            if has_apply_changes_request and apply_changes_request_time:
-                if copilot_finished_work_time and copilot_finished_work_time > apply_changes_request_time:
-                    # Found "Copilot finished work on behalf of" AFTER the apply request
-                    copilot_is_working = False
-                    print(f"[DEBUG] Copilot finished work (found 'finished work on behalf of' after apply request)")
-                else:
-                    # Apply changes requested but no "finished work" signal yet - still working
-                    copilot_is_working = True
-                    now = datetime.now(timezone.utc)
-                    time_since_request = (now - apply_changes_request_time).total_seconds()
-                    
-                    # TIMEOUT SAFEGUARD:
-                    # If it's been > 10 minutes (600s) and we haven't seen the finish message,
-                    # assume it's done to prevent deadlock.
-                    if time_since_request > 600:
-                        print(f"[DEBUG] Copilot working timeout ({int(time_since_request)}s) - assuming finished to prevent deadlock")
-                        copilot_is_working = False
-                    else:
-                        print(f"[DEBUG] Copilot still working - apply requested {int(time_since_request)}s ago, waiting for 'finished work on behalf of'")
-            # else: No apply request, copilot_is_working stays False (default) - no blocking
+                # Check for THE definitive completion signal in comments
+                if "copilot finished work on behalf of" in body_lower:
+                    comment_copilot_finished = True
+                    print(f"[DEBUG] Found 'Copilot finished work on behalf of' in comments")
+                    break
                         
         except Exception as e:
-            print(f"[DEBUG] Error in Copilot working detection: {e}")
+            print(f"[DEBUG] Error checking comments: {e}")
+        
+        # ======================================================================
+        # FINAL DECISION: Is Copilot working?
+        # ======================================================================
+        # Timeline events are the PRIMARY source of truth.
+        # If timeline says working, Copilot IS working. Period.
+        # ======================================================================
+        
+        copilot_is_working = timeline_copilot_is_working
+        
+        # Additional check: If timeline says not working, but no finish comment found,
+        # and there's a recent work_started, we should still wait
+        # (This handles cases where work_finished event might be delayed)
+        if not copilot_is_working and not comment_copilot_finished and latest_work_started_time:
+            # If work started within last 10 minutes and no finish signal, assume still working
+            now = datetime.now(timezone.utc)
+            if isinstance(latest_work_started_time, str):
+                latest_work_started_time = datetime.fromisoformat(latest_work_started_time.replace('Z', '+00:00'))
+            time_since_start = (now - latest_work_started_time).total_seconds()
+            if time_since_start < 600:  # 10 minute timeout
+                print(f"[DEBUG] No finish signal yet, work started {int(time_since_start)}s ago - assuming still working")
+                copilot_is_working = True
+        
+        print(f"[DEBUG] === FINAL DECISION: copilot_is_working = {copilot_is_working} ===")
         
         # Get the latest commit SHA for the PR
         latest_commit_sha = pr.head.sha
