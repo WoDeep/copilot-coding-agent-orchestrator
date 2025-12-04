@@ -147,6 +147,42 @@ class AutomationEngine:
                 return True
         return False
     
+    def reverse_queue(self) -> bool:
+        """Reverse the order of all queued items (not in-progress or completed)"""
+        # Split queue into queued vs non-queued items
+        queued = [i for i in self.state.queue if i.state == WorkflowState.QUEUED]
+        non_queued = [i for i in self.state.queue if i.state != WorkflowState.QUEUED]
+        
+        if len(queued) < 2:
+            return False  # Nothing to reverse
+        
+        # Reverse queued items and rebuild queue
+        queued.reverse()
+        self.state.queue = non_queued + queued
+        self._sync_queue_to_config()
+        return True
+    
+    def reorder_queue(self, new_order: list[str]) -> bool:
+        """Reorder queued items based on new order of issue_ids"""
+        # Get current queued and non-queued items
+        queued = {i.issue_id: i for i in self.state.queue if i.state == WorkflowState.QUEUED}
+        non_queued = [i for i in self.state.queue if i.state != WorkflowState.QUEUED]
+        
+        # Build new queue in specified order
+        new_queued = []
+        for issue_id in new_order:
+            if issue_id in queued:
+                new_queued.append(queued[issue_id])
+        
+        # Add any items not in new_order at the end (safety)
+        for issue_id, item in queued.items():
+            if issue_id not in new_order:
+                new_queued.append(item)
+        
+        self.state.queue = non_queued + new_queued
+        self._sync_queue_to_config()
+        return True
+    
     def add_item(self, issue_id: str, position: int = -1) -> bool:
         """Add an item to the queue"""
         if any(item.issue_id == issue_id for item in self.state.queue):
@@ -167,6 +203,11 @@ class AutomationEngine:
         """Sync the queue state back to config file"""
         self.config['issue_queue'] = [item.issue_id for item in self.state.queue]
         self._save_config()
+    
+    def reload_queue_from_config(self):
+        """Reload queue from config file (useful after external changes)"""
+        self.config = self._load_config()
+        self._initialize_queue()
     
     # ========== STATUS CHECKING ==========
     

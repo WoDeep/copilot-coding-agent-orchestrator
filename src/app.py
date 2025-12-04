@@ -207,6 +207,12 @@ st.markdown("""
         color: white !important;
     }
     
+    /* Compact queue item buttons */
+    div[data-testid="column"] .stButton > button {
+        padding: 0.25rem 0.6rem !important;
+        min-height: unset !important;
+    }
+    
     /* Card container */
     .issue-card {
         background: white;
@@ -598,78 +604,78 @@ def state_badge(state: WorkflowState) -> str:
     return badges.get(state, "❓")
 
 
-def render_queue_item(item: QueueItem, index: int, total: int, show_controls: bool = True):
-    """Render a single queue item"""
-    col1, col2, col3, col4, col5 = st.columns([3, 2, 2, 1, 0.5])
+def render_compact_queue_item(item: QueueItem, index: int, total: int, show_controls: bool = True):
+    """Render a compact single-line queue item"""
+    cols = st.columns([0.3, 4, 1.5, 0.8]) if show_controls else st.columns([0.3, 5.5])
     
-    with col1:
+    with cols[0]:
+        st.markdown(f"<span style='color:#666;font-size:0.85rem;'>{index + 1}.</span>", unsafe_allow_html=True)
+    
+    with cols[1]:
         badge = state_badge(item.state)
-        # Show issue title if available, otherwise just ID
-        if item.issue_title:
-            st.write(f"{badge} **{item.issue_title}**")
-        else:
-            st.write(f"{badge} **{item.issue_id}**")
-        if item.issue_number:
-            st.caption(f"Issue #{item.issue_number}")
+        # Compact: title/ID + issue number on same line
+        title = item.issue_title if item.issue_title else item.issue_id
+        issue_link = f"[#{item.issue_number}](https://github.com/{REPO_FULL}/issues/{item.issue_number})" if item.issue_number else ""
+        st.markdown(f"{badge} **{title}** {issue_link}", unsafe_allow_html=True)
     
-    with col2:
-        st.write(item.state.value.replace("_", " ").title())
-        if item.pr_number:
-            st.caption(f"PR #{item.pr_number}")
-    
-    with col3:
-        if item.last_action:
-            st.caption(item.last_action)
-            if item.last_action_time:
-                st.caption(item.last_action_time.strftime('%H:%M'))
-    
-    with col4:
-        if show_controls:
-            subcol1, subcol2 = st.columns(2)
-            with subcol1:
+    if show_controls:
+        with cols[2]:
+            # Compact arrow buttons in a row
+            c1, c2 = st.columns(2)
+            with c1:
                 if index > 0:
-                    if st.button("⬆️", key=f"up_{item.issue_id}", help="Move up"):
+                    if st.button("↑", key=f"up_{item.issue_id}", help="Move up"):
                         engine.move_item_up(item.issue_id)
                         st.rerun()
-            with subcol2:
+            with c2:
                 if index < total - 1:
-                    if st.button("⬇️", key=f"down_{item.issue_id}", help="Move down"):
+                    if st.button("↓", key=f"down_{item.issue_id}", help="Move down"):
                         engine.move_item_down(item.issue_id)
                         st.rerun()
-    
-    with col5:
-        if show_controls:
-            if st.button("🗑️", key=f"del_{item.issue_id}", help="Remove from queue"):
+        
+        with cols[3]:
+            if st.button("×", key=f"del_{item.issue_id}", help="Remove"):
                 engine.remove_item(item.issue_id)
-                st.toast(f"Removed {item.issue_id} from queue", icon="🗑️")
+                st.toast(f"Removed {item.issue_id}", icon="🗑️")
                 st.rerun()
 
 
 with tab1:
-    st.subheader("📋 Issue Queue")
-    st.caption("Issues are processed top to bottom. Use arrows to reorder.")
+    # Header with action buttons
+    header_cols = st.columns([3, 1, 1])
+    with header_cols[0]:
+        st.subheader("📋 Issue Queue")
     
     queued_items = [i for i in engine.state.queue if i.state == WorkflowState.QUEUED]
+    
+    with header_cols[1]:
+        if len(queued_items) >= 2:
+            if st.button("🔄 Reverse", help="Flip the entire queue order", use_container_width=True):
+                engine.reverse_queue()
+                # Force reload from config to update session state
+                engine.reload_queue_from_config()
+                st.toast("Queue order reversed!", icon="🔄")
+                st.rerun()
+    
+    with header_cols[2]:
+        with st.popover("➕ Add", use_container_width=True):
+            new_issue = st.text_input("Issue ID", placeholder="#123", key="add_issue_input")
+            if st.button("Add to Queue", key="add_issue_btn"):
+                if new_issue:
+                    if engine.add_item(new_issue, 0):  # Add to top
+                        st.toast(f"Added {new_issue}", icon="✅")
+                        st.rerun()
+                    else:
+                        st.error("Already in queue")
+    
+    st.caption("Processed top→bottom. Use arrows to reorder.")
     
     if not queued_items:
         st.info("No issues in queue. All items are in progress or completed!")
     else:
+        # Clean list with arrow buttons (native Streamlit)
         for idx, item in enumerate(queued_items):
-            with st.container():
-                render_queue_item(item, idx, len(queued_items))
-                st.divider()
-    
-    # Add item form
-    with st.expander("➕ Add Issue to Queue"):
-        new_issue = st.text_input("Issue ID or Number", placeholder="#123 or TC-P-01")
-        position = st.number_input("Position (0 = top)", min_value=0, value=len(queued_items))
-        if st.button("Add to Queue"):
-            if new_issue:
-                if engine.add_item(new_issue, position):
-                    st.success(f"Added {new_issue} to queue")
-                    st.rerun()
-                else:
-                    st.error("Issue already in queue or invalid")
+            render_compact_queue_item(item, idx, len(queued_items))
 
 
 with tab2:

@@ -493,6 +493,13 @@ class AutomationDaemon:
                 pr.reviewers
             )
             
+            # CRITICAL: Wait for Copilot to finish working before any action!
+            # This prevents race conditions where we mark PR ready while Copilot
+            # is still applying changes.
+            if pr.copilot_is_working:
+                logger.debug(f"[{item.issue_id}] Copilot still working - waiting before taking action")
+                return None  # Don't proceed until Copilot is done
+            
             # Step 1: If PR is still draft, mark it ready for review
             if pr.is_draft:
                 slog.log_action_start(item.issue_id, "Mark PR ready for review (review cycle complete)", {"pr_number": item.pr_number})
