@@ -22,20 +22,28 @@ logger = logging.getLogger(__name__)
 
 def load_env():
     """Load environment variables from .env file"""
-    env_file = Path(__file__).parent / ".env"
-    if env_file.exists():
-        with open(env_file) as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith('#') and '=' in line:
-                    key, value = line.split('=', 1)
-                    key = key.strip()
-                    value = value.strip()
-                    if value.startswith('"') and value.endswith('"'):
-                        value = value[1:-1]
-                    if value.startswith("'") and value.endswith("'"):
-                        value = value[1:-1]
-                    os.environ[key] = value
+    # Try multiple locations
+    possible_paths = [
+        Path(__file__).parent / ".env",
+        Path(__file__).parent.parent / ".env",  # Project root
+        Path.cwd() / ".env",
+    ]
+    
+    for env_file in possible_paths:
+        if env_file.exists():
+            with open(env_file) as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#') and '=' in line:
+                        key, value = line.split('=', 1)
+                        key = key.strip()
+                        value = value.strip()
+                        if value.startswith('"') and value.endswith('"'):
+                            value = value[1:-1]
+                        if value.startswith("'") and value.endswith("'"):
+                            value = value[1:-1]
+                        os.environ[key] = value
+            return
 
 load_env()
 
@@ -94,14 +102,31 @@ class GitHubMCPClient:
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         await self.close()
     
+    def _parse_response(self, response: httpx.Response) -> dict:
+        """Parse response, handling both JSON and SSE formats"""
+        content_type = response.headers.get("content-type", "")
+        
+        if "text/event-stream" in content_type:
+            # Parse SSE format
+            for line in response.text.splitlines():
+                if line.startswith("data: "):
+                    try:
+                        return json.loads(line[6:])
+                    except json.JSONDecodeError:
+                        continue
+            raise ValueError("No valid JSON data found in SSE response")
+        else:
+            # Parse standard JSON
+            return response.json()
+
     async def initialize(self) -> bool:
         """Initialize the MCP session"""
         if not self.client:
             self.client = httpx.AsyncClient(timeout=60.0)
         
-        # Generate initial session ID
-        import uuid
-        self._session_id = str(uuid.uuid4())
+        # Don't generate session ID client-side, let server assign it
+        # self._session_id = str(uuid.uuid4())
+        self._session_id = None
         
         try:
             response = await self.client.post(
@@ -122,13 +147,23 @@ class GitHubMCPClient:
                 }
             )
             
+            # Debug logging
+            logger.info(f"Initialize response status: {response.status_code}")
+            # logger.info(f"Initialize response headers: {response.headers}")
+            # logger.info(f"Initialize response body: {response.text}")
+            
             if response.status_code == 200:
                 # Server may return a different session ID
                 returned_session = response.headers.get("Mcp-Session-Id")
                 if returned_session:
                     self._session_id = returned_session
                 
-                result = response.json()
+                try:
+                    result = self._parse_response(response)
+                except Exception as e:
+                    logger.error(f"Failed to parse response: {e}")
+                    return False
+                
                 server_info = result.get('result', {}).get('serverInfo', {})
                 logger.info(f"MCP Server initialized: {server_info.get('name')} v{server_info.get('version')}")
                 logger.info(f"Session ID: {self._session_id}")
@@ -165,7 +200,12 @@ class GitHubMCPClient:
             )
             
             if response.status_code == 200:
-                result = response.json()
+                try:
+                    result = self._parse_response(response)
+                except Exception as e:
+                    logger.error(f"Failed to parse response: {e}")
+                    return []
+                    
                 tools = result.get("result", {}).get("tools", [])
                 return tools
             else:
@@ -197,7 +237,15 @@ class GitHubMCPClient:
             )
             
             if response.status_code == 200:
-                result = response.json()
+                try:
+                    result = self._parse_response(response)
+                except Exception as e:
+                    return MCPToolResult(
+                        success=False,
+                        content=None,
+                        error=f"Failed to parse response: {e}"
+                    )
+                    
                 if "error" in result:
                     return MCPToolResult(
                         success=False,
