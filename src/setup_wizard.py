@@ -238,9 +238,10 @@ def render_setup_wizard(config_path: Path, env_path: Path) -> bool:
                 col1, col2, col3 = st.columns([0.5, 3, 1])
                 with col1:
                     checked = st.checkbox(
-                        "",
+                        f"Select issue #{issue['number']}",
                         key=f"issue_{issue['number']}",
-                        value=issue['number'] in [i['number'] for i in st.session_state.setup_selected_issues]
+                        value=issue['number'] in [i['number'] for i in st.session_state.setup_selected_issues],
+                        label_visibility="collapsed"
                     )
                     if checked:
                         selected_issues.append(issue)
