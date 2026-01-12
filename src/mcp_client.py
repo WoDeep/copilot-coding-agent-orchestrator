@@ -291,7 +291,22 @@ class GitHubMCPClient:
         """
         logger.info(f"Assigning Copilot to issue #{issue_number} in {owner}/{repo}")
         
-        # The tool name in the remote server
+        # Try snake_case first (current MCP API spec)
+        result = await self.call_tool(
+            "assign_copilot_to_issue",
+            {
+                "owner": owner,
+                "repo": repo,
+                "issue_number": issue_number
+            }
+        )
+        
+        if result.success:
+            logger.info(f"Successfully assigned Copilot to issue #{issue_number} (snake_case)")
+            return result
+        
+        # Fallback: try camelCase in case API uses different convention
+        logger.warning(f"snake_case failed ({result.error}), trying camelCase...")
         result = await self.call_tool(
             "assign_copilot_to_issue",
             {
@@ -302,9 +317,9 @@ class GitHubMCPClient:
         )
         
         if result.success:
-            logger.info(f"Successfully assigned Copilot to issue #{issue_number}")
+            logger.info(f"Successfully assigned Copilot to issue #{issue_number} (camelCase)")
         else:
-            logger.error(f"Failed to assign Copilot: {result.error}")
+            logger.error(f"Failed to assign Copilot with both formats: {result.error}")
         
         return result
 
